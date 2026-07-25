@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FitCRM</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<style>
+  #boot-error{display:none;position:fixed;inset:0;background:#fff;color:#111;font-family:system-ui,sans-serif;
+    padding:32px;max-width:640px;margin:60px auto;border:1px solid #eee;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+  #boot-error h1{font-size:18px;margin:0 0 12px;color:#ea580c}
+  #boot-error p{font-size:14px;line-height:1.6;color:#444;margin:0 0 8px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="boot-error">
+  <h1>Страница не смогла загрузиться</h1>
+  <p>Не подключились внешние библиотеки (React или Tailwind) — обычно это значит, что нет интернета или сеть их блокирует.</p>
+  <p>Проверьте: 1) есть ли интернет; 2) откройте эту же ссылку с телефона на мобильном интернете.</p>
+  <p>Откройте консоль браузера (F12 → Console) и пришлите мне красный текст ошибки.</p>
+</div>
+<script>
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      var root = document.getElementById("root");
+      if (!root || root.children.length === 0) {
+        document.getElementById("boot-error").style.display = "block";
+      }
+    }, 3000);
+  });
+</script>
+<script>
+"use strict";
+const { useState, useMemo } = React;
+/* ---- Иконки как встроенные SVG (без внешних шрифтов/CDN) ---- */
+function Svg({ children, size = 16, className = "" }) {
+    return (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", className: className, style: { display: "inline-block", verticalAlign: "middle", flexShrink: 0 } }, children));
+}
+const Search = (p) => React.createElement(Svg, { ...p },
+    React.createElement("circle", { cx: "11", cy: "11", r: "8" }),
+    React.createElement("path", { d: "m21 21-4.3-4.3" }));
+const Phone = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z" }));
+const Cake = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" }),
+    React.createElement("path", { d: "M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" }),
+    React.createElement("path", { d: "M2 21h20" }),
+    React.createElement("path", { d: "M7 8v3M12 8v3M17 8v3" }),
+    React.createElement("path", { d: "M7 4h.01M12 4h.01M17 4h.01" }));
+const MapPin = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" }),
+    React.createElement("circle", { cx: "12", cy: "10", r: "3" }));
+const Calendar = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M8 2v4M16 2v4" }),
+    React.createElement("rect", { x: "3", y: "4", width: "18", height: "18", rx: "2" }),
+    React.createElement("path", { d: "M3 10h18" }));
+const Clock = (p) => React.createElement(Svg, { ...p },
+    React.createElement("circle", { cx: "12", cy: "12", r: "10" }),
+    React.createElement("path", { d: "M12 6v6l4 2" }));
+const Plus = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M5 12h14M12 5v14" }));
+const X = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M18 6 6 18M6 6l12 12" }));
+const CreditCard = (p) => React.createElement(Svg, { ...p },
+    React.createElement("rect", { x: "2", y: "5", width: "20", height: "14", rx: "2" }),
+    React.createElement("path", { d: "M2 10h20" }));
+const Dumbbell = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "m6.5 6.5 11 11" }),
+    React.createElement("path", { d: "m21 7-3-3-2.5 2.5 3 3z" }),
+    React.createElement("path", { d: "M3 17l3 3 2.5-2.5-3-3z" }),
+    React.createElement("path", { d: "m18 6-2.5 2.5" }),
+    React.createElement("path", { d: "m6 18 2.5-2.5" }));
+const ShoppingBag = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" }),
+    React.createElement("path", { d: "M3 6h18" }),
+    React.createElement("path", { d: "M16 10a4 4 0 0 1-8 0" }));
+const RefreshCw = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" }),
+    React.createElement("path", { d: "M3 3v5h5" }),
+    React.createElement("path", { d: "M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" }),
+    React.createElement("path", { d: "M16 16h5v5" }));
+const Users = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" }),
+    React.createElement("circle", { cx: "9", cy: "7", r: "4" }),
+    React.createElement("path", { d: "M22 21v-2a4 4 0 0 0-3-3.87" }),
+    React.createElement("path", { d: "M16 3.13a4 4 0 0 1 0 7.75" }));
+const Wallet = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" }),
+    React.createElement("path", { d: "M18 12a2 2 0 0 0 0 4h3v-4Z" }));
+const CalendarDays = (p) => React.createElement(Svg, { ...p },
+    React.createElement("rect", { x: "3", y: "4", width: "18", height: "18", rx: "2" }),
+    React.createElement("path", { d: "M8 2v4M16 2v4M3 10h18" }),
+    React.createElement("path", { d: "M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" }));
+const TrendingUp = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M22 7 13.5 15.5 8.5 10.5 2 17" }),
+    React.createElement("path", { d: "M16 7h6v6" }));
+const ChevronRight = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "m9 18 6-6-6-6" }));
+const CheckCircle2 = (p) => React.createElement(Svg, { ...p },
+    React.createElement("circle", { cx: "12", cy: "12", r: "10" }),
+    React.createElement("path", { d: "m9 12 2 2 4-4" }));
+const XCircle = (p) => React.createElement(Svg, { ...p },
+    React.createElement("circle", { cx: "12", cy: "12", r: "10" }),
+    React.createElement("path", { d: "m15 9-6 6M9 9l6 6" }));
+const ArrowUpRight = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M7 7h10v10" }),
+    React.createElement("path", { d: "M7 17 17 7" }));
+const ArrowDownRight = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "m7 7 10 10" }),
+    React.createElement("path", { d: "M17 7v10H7" }));
+const Banknote = (p) => React.createElement(Svg, { ...p },
+    React.createElement("rect", { width: "20", height: "12", x: "2", y: "6", rx: "2" }),
+    React.createElement("circle", { cx: "12", cy: "12", r: "2" }),
+    React.createElement("path", { d: "M6 12h.01M18 12h.01" }));
+const History = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M3 12a9 9 0 1 0 3-6.7L3 8" }),
+    React.createElement("path", { d: "M3 3v5h5" }),
+    React.createElement("path", { d: "M12 7v5l4 2" }));
+const User = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" }),
+    React.createElement("circle", { cx: "12", cy: "7", r: "4" }));
+const Cloud = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" }));
+const CloudOff = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "m2 2 20 20" }),
+    React.createElement("path", { d: "M5.78 5.78A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.31-.19" }),
+    React.createElement("path", { d: "M21.53 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7 7 0 0 0 10 5.07" }));
+const Loader2 = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M21 12a9 9 0 1 1-6.22-8.56" }));
+const Printer = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M6 9V2h12v7" }),
+    React.createElement("path", { d: "M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" }),
+    React.createElement("rect", { x: "6", y: "14", width: "12", height: "8" }));
+const FileDown = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" }),
+    React.createElement("path", { d: "M14 2v6h6" }),
+    React.createElement("path", { d: "M12 18v-6" }),
+    React.createElement("path", { d: "m9 15 3 3 3-3" }));
+const AlertTriangle = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" }),
+    React.createElement("path", { d: "M12 9v4M12 17h.01" }));
+const Plug = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M12 22v-5M9 8V2M15 8V2" }),
+    React.createElement("path", { d: "M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" }));
+/* ============================================================
+   MOCK DATA LAYER
+   Эти функции — единственное место, которое нужно заменить
+   вызовами Supabase (supabase.from('clients').select(...) и т.д.)
+   Формы данных 1:1 соответствуют таблицам БД, описанным ниже.
+   ============================================================ */
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const daysAgo = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+};
+const daysFromNow = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+};
+const fmtDate = (iso) => new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+const fmtMoney = (n) => n.toLocaleString("ru-RU") + " ₸";
+const initialTrainers = [];
+const initialProducts = [];
+const initialClients = [];
+const initialSubscriptions = [];
+const initialSales = [];
+const initialCashOps = [];
+const initialSchedule = [];
+/* ============================================================
+   SUPABASE (PostgREST over fetch — no extra packages needed)
+   Таблицы и поля соответствуют SQL-схеме. UI использует camelCase,
+   БД — snake_case, поэтому ниже — маппинг в обе стороны.
+   ============================================================ */
+async function sbRequest(cfg, table, { method = "GET", body, query = "" } = {}) {
+    const headers = {
+        apikey: cfg.key,
+        Authorization: `Bearer ${cfg.key}`,
+        "Content-Type": "application/json",
+    };
+    if (method === "POST" || method === "PATCH")
+        headers.Prefer = "return=representation";
+    const res = await fetch(`${cfg.url}/rest/v1/${table}${query}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText);
+        throw new Error(`${table}: ${res.status} ${text}`);
+    }
+    if (method === "DELETE")
+        return null;
+    return res.json();
+}
+const clientFromDb = (r) => ({
+    id: r.id, name: r.name, phone: r.phone, birthdate: r.birthdate, address: r.address,
+    photo: r.photo_url, firstVisit: r.first_visit, lastVisit: r.last_visit,
+    comments: r.comments, visits: [],
+});
+const clientToDb = (c) => ({
+    name: c.name, phone: c.phone, birthdate: c.birthdate || null, address: c.address || null,
+    first_visit: c.firstVisit, last_visit: c.lastVisit, comments: c.comments || null,
+});
+const subFromDb = (r) => ({
+    id: r.id, clientId: r.client_id, name: r.name, type: r.type, price: r.price,
+    purchaseDate: r.purchase_date, endDate: r.end_date, status: r.status, visitsLeft: r.visits_left,
+});
+const subToDb = (s) => ({
+    client_id: s.clientId, name: s.name, type: s.type, price: s.price,
+    purchase_date: s.purchaseDate, end_date: s.endDate, status: s.status, visits_left: s.visitsLeft,
+});
+const saleFromDb = (r) => ({ id: r.id, clientId: r.client_id, type: r.type, title: r.title, amount: r.amount, date: r.date });
+const saleToDb = (s) => ({ client_id: s.clientId, type: s.type, title: s.title, amount: s.amount, date: s.date });
+const scheduleFromDb = (r) => ({
+    id: r.id, day: r.day, time: r.time, trainerId: r.trainer_id, group: r.group_name,
+    capacity: r.capacity, enrolledIds: r.enrolled_client_ids || [],
+});
+/* ============================================================
+   UI PRIMITIVES
+   ============================================================ */
+function StatusBadge({ status }) {
+    const active = status === "active";
+    return (React.createElement("span", { className: `inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}` },
+        active ? React.createElement(CheckCircle2, { size: 13 }) : React.createElement(XCircle, { size: 13 }),
+        active ? "Активен" : "Закончился"));
+}
+function Avatar({ name, size = 44 }) {
+    const initials = name
+        .split(" ")
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+    return (React.createElement("div", { style: { width: size, height: size, fontSize: size / 2.6 }, className: "flex shrink-0 items-center justify-center rounded-full bg-orange-100 font-semibold text-orange-600" }, initials));
+}
+function Field({ icon: Icon, label, value }) {
+    return (React.createElement("div", { className: "flex items-start gap-3" },
+        React.createElement("div", { className: "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-500" },
+            React.createElement(Icon, { size: 16 })),
+        React.createElement("div", { className: "min-w-0" },
+            React.createElement("div", { className: "text-xs text-gray-400" }, label),
+            React.createElement("div", { className: "truncate text-sm font-medium text-gray-800" }, value || "—"))));
+}
+function Modal({ title, onClose, children, width = "max-w-md" }) {
+    return (React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" },
+        React.createElement("div", { className: `w-full ${width} rounded-2xl bg-white p-6 shadow-xl` },
+            React.createElement("div", { className: "mb-4 flex items-center justify-between" },
+                React.createElement("h3", { className: "text-base font-semibold text-gray-900" }, title),
+                React.createElement("button", { onClick: onClose, className: "rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" },
+                    React.createElement(X, { size: 18 }))),
+            children)));
+}
+function PrimaryButton({ children, onClick, icon: Icon, className = "", type = "button", disabled }) {
+    return (React.createElement("button", { type: type, onClick: onClick, disabled: disabled, className: `inline-flex items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40 ${className}` },
+        Icon && React.createElement(Icon, { size: 16 }),
+        children));
+}
+function GhostButton({ children, onClick, icon: Icon, className = "" }) {
+    return (React.createElement("button", { onClick: onClick, className: `inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 ${className}` },
+        Icon && React.createElement(Icon, { size: 16 }),
+        children));
+}
+/* ============================================================
+   MAIN APP
+   ============================================================ */
+/* ============================================================
+   ⚙️ НАСТРОЙКИ SUPABASE — впишите сюда свои значения между кавычками.
+   Project URL и anon public key берутся в Supabase:
+   Project Settings → API.
+   Если оставить пустыми "" — приложение будет работать локально,
+   без базы (данные не сохраняются между визитами).
+   ============================================================ */
+const SUPABASE_URL = "https://eludkdamouwfeyquevrp.supabase.co"; // например: "https://abcdefghijk.supabase.co"
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsdWRrZGFtb3V3ZmV5cXVldnJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjQxMzMsImV4cCI6MjEwMDU0MDEzM30.uh5ghoTl6KSgK95Sb3Lyb2tVeV7ENLzNGofEBwUCg6E"; // anon public key (длинная строка)
+function App() {
+    var _a;
+    const [view, setView] = useState("clients");
+    const [clients, setClients] = useState(initialClients);
+    const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
+    const [sales, setSales] = useState(initialSales);
+    const [cashOps, setCashOps] = useState(initialCashOps);
+    const [schedule, setSchedule] = useState(initialSchedule);
+    const [trainers, setTrainers] = useState(initialTrainers);
+    const [products, setProducts] = useState(initialProducts);
+    const [selectedClientId, setSelectedClientId] = useState(((_a = clients[0]) === null || _a === void 0 ? void 0 : _a.id) || null);
+    const [query, setQuery] = useState("");
+    const [modal, setModal] = useState(null); // 'subscription' | 'training' | 'product' | 'extend' | 'expense' | 'supabase'
+    // ---- Supabase connection state ----
+    const [sb, setSb] = useState({ url: SUPABASE_URL, key: SUPABASE_KEY, connected: false });
+    const [sbStatus, setSbStatus] = useState("disconnected"); // disconnected | connecting | connected | error
+    const [sbError, setSbError] = useState("");
+    React.useEffect(() => {
+        if (SUPABASE_URL && SUPABASE_KEY) {
+            connectSupabase(SUPABASE_URL, SUPABASE_KEY);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    // ---- Print / PDF ----
+    const [printJob, setPrintJob] = useState(null);
+    React.useEffect(() => {
+        const onAfterPrint = () => setPrintJob(null);
+        window.addEventListener("afterprint", onAfterPrint);
+        return () => window.removeEventListener("afterprint", onAfterPrint);
+    }, []);
+    React.useEffect(() => {
+        if (printJob) {
+            const t = setTimeout(() => window.print(), 100);
+            return () => clearTimeout(t);
+        }
+    }, [printJob]);
+    async function connectSupabase(url, key) {
+        const cfg = { url: url.replace(/\/+$/, ""), key };
+        setSbStatus("connecting");
+        setSbError("");
+        try {
+            const [cl, su, sa, co, tr, pr, sc] = await Promise.all([
+                sbRequest(cfg, "clients", { query: "?select=*&order=name" }),
+                sbRequest(cfg, "subscriptions"),
+                sbRequest(cfg, "sales", { query: "?order=date.desc" }),
+                sbRequest(cfg, "cash_operations", { query: "?order=date.desc" }),
+                sbRequest(cfg, "trainers"),
+                sbRequest(cfg, "products"),
+                sbRequest(cfg, "schedule"),
+            ]);
+            let visitsByClient = {};
+            try {
+                const vs = await sbRequest(cfg, "visits", { query: "?order=visit_date.desc" });
+                vs.forEach((v) => {
+                    visitsByClient[v.client_id] = visitsByClient[v.client_id] || [];
+                    visitsByClient[v.client_id].push(v.visit_date);
+                });
+            }
+            catch (_) { /* visits table optional at this stage */ }
+            const mappedClients = cl.map((r) => ({ ...clientFromDb(r), visits: visitsByClient[r.id] || [] }));
+            setClients(mappedClients);
+            setSubscriptions(su.map(subFromDb));
+            setSales(sa.map(saleFromDb));
+            setCashOps(co);
+            setTrainers(tr);
+            setProducts(pr);
+            setSchedule(sc.map(scheduleFromDb));
+            if (mappedClients[0])
+                setSelectedClientId(mappedClients[0].id);
+            setSb({ url: cfg.url, key, connected: true });
+            setSbStatus("connected");
+            setModal(null);
+        }
+        catch (e) {
+            setSbStatus("error");
+            setSbError(e.message || "Не удалось подключиться");
+        }
+    }
+    function disconnectSupabase() {
+        setSb({ url: "", key: "", connected: false });
+        setSbStatus("disconnected");
+    }
+    async function sbInsert(table, payload) {
+        if (!sb.connected)
+            return null;
+        try {
+            const rows = await sbRequest(sb, table, { method: "POST", body: payload });
+            return (rows === null || rows === void 0 ? void 0 : rows[0]) || null;
+        }
+        catch (e) {
+            setSbError(e.message);
+            return null;
+        }
+    }
+    async function sbPatch(table, id, payload) {
+        if (!sb.connected)
+            return null;
+        try {
+            return await sbRequest(sb, table, { method: "PATCH", body: payload, query: `?id=eq.${id}` });
+        }
+        catch (e) {
+            setSbError(e.message);
+            return null;
+        }
+    }
+    const selectedClient = clients.find((c) => c.id === selectedClientId) || null;
+    const filteredClients = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q)
+            return clients;
+        return clients.filter((c) => c.name.toLowerCase().includes(q) || c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")));
+    }, [clients, query]);
+    const clientSubscriptions = (clientId) => subscriptions.filter((s) => s.clientId === clientId);
+    const clientSales = (clientId) => sales.filter((s) => s.clientId === clientId).sort((a, b) => (a.date < b.date ? 1 : -1));
+    /* ---------- actions ---------- */
+    async function addCashOp({ type, category, description, amount }) {
+        const local = { id: "op" + Date.now(), date: todayISO(), type, category, description, amount };
+        const saved = await sbInsert("cash_operations", { date: local.date, type, category, description, amount });
+        setCashOps((prev) => [saved || local, ...prev]);
+    }
+    async function recordSale({ clientId, type, title, amount }) {
+        var _a;
+        const local = { id: "sl" + Date.now(), clientId, type, title, amount, date: todayISO() };
+        const saved = await sbInsert("sales", saleToDb(local));
+        setSales((prev) => [saved ? saleFromDb(saved) : local, ...prev]);
+        await addCashOp({
+            type: "income",
+            category: type === "subscription" ? "Абонемент" : type === "training" ? "Разовая тренировка" : "Товар",
+            description: `${(_a = clients.find((c) => c.id === clientId)) === null || _a === void 0 ? void 0 : _a.name} — ${title}`,
+            amount,
+        });
+    }
+    async function sellSubscription({ name, type, price, durationDays, visitsCount }) {
+        const local = {
+            id: "s" + Date.now(),
+            clientId: selectedClientId,
+            name,
+            type,
+            price,
+            purchaseDate: todayISO(),
+            endDate: type === "time" ? daysFromNow(durationDays) : daysFromNow(60),
+            status: "active",
+            visitsLeft: type === "visits" ? visitsCount : null,
+        };
+        const saved = await sbInsert("subscriptions", subToDb(local));
+        setSubscriptions((prev) => [saved ? subFromDb(saved) : local, ...prev]);
+        await recordSale({ clientId: selectedClientId, type: "subscription", title: name, amount: price });
+        setModal(null);
+    }
+    async function sellTraining({ price }) {
+        await recordSale({ clientId: selectedClientId, type: "training", title: "Разовая тренировка", amount: price });
+        setModal(null);
+    }
+    async function sellProduct({ product, qty }) {
+        if (!product)
+            return;
+        await recordSale({ clientId: selectedClientId, type: "product", title: `${product.name} × ${qty}`, amount: product.price * qty });
+        setModal(null);
+    }
+    async function extendSubscription({ subId, days, visits }) {
+        const sub = subscriptions.find((s) => s.id === subId);
+        if (!sub)
+            return;
+        let patch;
+        if (sub.type === "time") {
+            const base = new Date(sub.endDate) > new Date() ? sub.endDate : todayISO();
+            const d = new Date(base);
+            d.setDate(d.getDate() + Number(days || 0));
+            patch = { endDate: d.toISOString().slice(0, 10), status: "active" };
+        }
+        else {
+            patch = { visitsLeft: (sub.visitsLeft || 0) + Number(visits || 0), status: "active" };
+        }
+        await sbPatch("subscriptions", subId, sub.type === "time"
+            ? { end_date: patch.endDate, status: patch.status }
+            : { visits_left: patch.visitsLeft, status: patch.status });
+        setSubscriptions((prev) => prev.map((s) => (s.id === subId ? { ...s, ...patch } : s)));
+        setModal(null);
+    }
+    async function addClient({ name, phone, birthdate, address, comments }) {
+        const local = {
+            id: "c" + Date.now(),
+            name, phone, birthdate: birthdate || "", address: address || "",
+            photo: null,
+            firstVisit: todayISO(),
+            lastVisit: todayISO(),
+            comments: comments || "",
+            visits: [],
+        };
+        const saved = await sbInsert("clients", clientToDb(local));
+        const finalClient = saved ? { ...clientFromDb(saved), visits: [] } : local;
+        setClients((prev) => [finalClient, ...prev]);
+        setSelectedClientId(finalClient.id);
+        setModal(null);
+    }
+    async function addProduct({ name, price }) {
+        const local = { id: "p" + Date.now(), name, price };
+        const saved = await sbInsert("products", { name, price });
+        setProducts((prev) => [...prev, saved || local]);
+        return saved || local;
+    }
+    async function addTrainer({ name, specialty }) {
+        const local = { id: "t" + Date.now(), name, specialty };
+        const saved = await sbInsert("trainers", { name, specialty });
+        setTrainers((prev) => [...prev, saved || local]);
+        return saved || local;
+    }
+    async function addScheduleSlot({ day, time, trainerId, group, capacity }) {
+        const local = { id: "sc" + Date.now(), day, time, trainerId, group, capacity, enrolledIds: [] };
+        const saved = await sbInsert("schedule", {
+            day, time, trainer_id: trainerId, group_name: group, capacity, enrolled_client_ids: [],
+        });
+        setSchedule((prev) => [...prev, saved ? scheduleFromDb(saved) : local]);
+    }
+    async function deleteScheduleSlot(slotId) {
+        if (sb.connected) {
+            try {
+                await sbRequest(sb, "schedule", { method: "DELETE", query: `?id=eq.${slotId}` });
+            }
+            catch (e) {
+                setSbError(e.message);
+            }
+        }
+        setSchedule((prev) => prev.filter((s) => s.id !== slotId));
+    }
+    async function enrollClient(slotId, clientId) {
+        const slot = schedule.find((s) => s.id === slotId);
+        if (!slot || slot.enrolledIds.includes(clientId))
+            return;
+        const enrolledIds = [...slot.enrolledIds, clientId];
+        await sbPatch("schedule", slotId, { enrolled_client_ids: enrolledIds });
+        setSchedule((prev) => prev.map((s) => (s.id === slotId ? { ...s, enrolledIds } : s)));
+    }
+    async function unenrollClient(slotId, clientId) {
+        const slot = schedule.find((s) => s.id === slotId);
+        if (!slot)
+            return;
+        const enrolledIds = slot.enrolledIds.filter((id) => id !== clientId);
+        await sbPatch("schedule", slotId, { enrolled_client_ids: enrolledIds });
+        setSchedule((prev) => prev.map((s) => (s.id === slotId ? { ...s, enrolledIds } : s)));
+    }
+    function triggerPrintDay(dayOps, total) {
+        setPrintJob({ type: "day", ops: dayOps, total });
+    }
+    function triggerPrintReceipt(sale, clientName) {
+        setPrintJob({ type: "receipt", sale, clientName });
+    }
+    const today = todayISO();
+    const dayOps = cashOps.filter((o) => o.date === today);
+    const weekOps = cashOps.filter((o) => o.date >= daysAgo(7));
+    const monthOps = cashOps.filter((o) => o.date >= daysAgo(30));
+    const profit = (ops) => ops.filter((o) => o.type === "income").reduce((s, o) => s + o.amount, 0) -
+        ops.filter((o) => o.type === "expense").reduce((s, o) => s + o.amount, 0);
+    const cashInRegister = dayOps.filter((o) => o.type === "income").reduce((s, o) => s + o.amount, 0) -
+        dayOps.filter((o) => o.type === "expense").reduce((s, o) => s + o.amount, 0);
+    return (React.createElement(React.Fragment, null,
+        React.createElement("style", null, `
+        @media print {
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          body { background: white; }
+        }
+        .print-only { display: none; }
+      `),
+        React.createElement("div", { className: "flex h-screen w-full bg-gray-50 text-gray-900 no-print" },
+            React.createElement(Sidebar, { view: view, setView: setView, sbStatus: sbStatus }),
+            React.createElement("div", { className: "flex-1 overflow-hidden" },
+                sbError && (React.createElement("div", { className: "flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-6 py-2 text-xs text-rose-600" },
+                    React.createElement(AlertTriangle, { size: 14 }),
+                    " ",
+                    sbError)),
+                view === "clients" && (React.createElement(ClientsView, { clients: filteredClients, query: query, setQuery: setQuery, selectedClientId: selectedClientId, setSelectedClientId: setSelectedClientId, selectedClient: selectedClient, subscriptions: selectedClient ? clientSubscriptions(selectedClient.id) : [], salesHistory: selectedClient ? clientSales(selectedClient.id) : [], openModal: setModal, onPrintReceipt: triggerPrintReceipt })),
+                view === "cash" && (React.createElement(CashView, { dayOps: dayOps, weekProfit: profit(weekOps), monthProfit: profit(monthOps), dayProfit: profit(dayOps), addCashOp: () => setModal("cash-op"), onPrintDay: () => triggerPrintDay(dayOps, cashInRegister) })),
+                view === "schedule" && (React.createElement(ScheduleView, { schedule: schedule, trainers: trainers, clients: clients, onAddTrainer: addTrainer, onAddSlot: addScheduleSlot, onDeleteSlot: deleteScheduleSlot, onEnroll: enrollClient, onUnenroll: unenrollClient }))),
+            modal === "subscription" && selectedClient && (React.createElement(SubscriptionModal, { onClose: () => setModal(null), onSubmit: sellSubscription })),
+            modal === "training" && selectedClient && (React.createElement(TrainingModal, { onClose: () => setModal(null), onSubmit: sellTraining })),
+            modal === "product" && selectedClient && (React.createElement(ProductModal, { products: products, onClose: () => setModal(null), onSubmit: sellProduct, onAddProduct: addProduct })),
+            modal === "extend" && selectedClient && (React.createElement(ExtendModal, { subscriptions: clientSubscriptions(selectedClient.id), onClose: () => setModal(null), onSubmit: extendSubscription })),
+            modal === "cash-op" && (React.createElement(CashOpModal, { onClose: () => setModal(null), onSubmit: (payload) => {
+                    addCashOp(payload);
+                    setModal(null);
+                } })),
+            modal === "add-client" && (React.createElement(AddClientModal, { onClose: () => setModal(null), onSubmit: addClient }))),
+        printJob && React.createElement(PrintableReport, { job: printJob })));
+}
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+function Sidebar({ view, setView, sbStatus }) {
+    const items = [
+        { id: "clients", label: "Клиенты", icon: Users },
+        { id: "cash", label: "Касса", icon: Wallet },
+        { id: "schedule", label: "Расписание", icon: CalendarDays },
+    ];
+    return (React.createElement("div", { className: "flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white" },
+        React.createElement("div", { className: "flex items-center gap-2 px-6 py-6" },
+            React.createElement("div", { className: "flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white" },
+                React.createElement(Dumbbell, { size: 18 })),
+            React.createElement("div", null,
+                React.createElement("div", { className: "text-sm font-semibold leading-tight text-gray-900" }, "FitCRM"))),
+        React.createElement("nav", { className: "flex-1 space-y-1 px-3" }, items.map((it) => {
+            const active = view === it.id;
+            return (React.createElement("button", { key: it.id, onClick: () => setView(it.id), className: `flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${active ? "bg-orange-500 text-white shadow-sm" : "text-gray-600 hover:bg-orange-50 hover:text-orange-600"}` },
+                React.createElement(it.icon, { size: 17 }),
+                it.label));
+        })),
+        React.createElement("div", { className: "flex items-center gap-2 border-t border-gray-100 px-6 py-4 text-xs" },
+            sbStatus === "connected" && React.createElement(Cloud, { size: 14, className: "text-emerald-500" }),
+            sbStatus === "connecting" && React.createElement(Loader2, { size: 14, className: "animate-spin text-orange-500" }),
+            (sbStatus === "disconnected" || sbStatus === "error") && React.createElement(CloudOff, { size: 14, className: "text-gray-300" }),
+            React.createElement("span", { className: sbStatus === "connected" ? "text-emerald-600" : "text-gray-400" },
+                sbStatus === "connected" && "Supabase подключён",
+                sbStatus === "connecting" && "Подключение...",
+                sbStatus === "error" && "Ошибка подключения",
+                sbStatus === "disconnected" && "Локальный режим"))));
+}
+/* ============================================================
+   CLIENTS VIEW
+   ============================================================ */
+function ClientsView({ clients, query, setQuery, selectedClientId, setSelectedClientId, selectedClient, subscriptions, salesHistory, openModal, onPrintReceipt, }) {
+    return (React.createElement("div", { className: "flex h-full" },
+        React.createElement("div", { className: "flex w-80 shrink-0 flex-col border-r border-gray-200 bg-white" },
+            React.createElement("div", { className: "space-y-3 border-b border-gray-100 p-4" },
+                React.createElement(PrimaryButton, { icon: Plus, className: "w-full", onClick: () => openModal("add-client") }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
+                React.createElement("div", { className: "relative" },
+                    React.createElement(Search, { size: 16, className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" }),
+                    React.createElement("input", { value: query, onChange: (e) => setQuery(e.target.value), placeholder: "\u0418\u043C\u044F \u0438\u043B\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D", className: "w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" }))),
+            React.createElement("div", { className: "flex-1 overflow-y-auto" },
+                clients.length === 0 && (React.createElement("div", { className: "p-6 text-center text-sm text-gray-400" }, "\u041D\u0438\u043A\u043E\u0433\u043E \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E")),
+                clients.map((c) => (React.createElement("button", { key: c.id, onClick: () => setSelectedClientId(c.id), className: `flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left transition ${selectedClientId === c.id ? "bg-orange-50" : "hover:bg-gray-50"}` },
+                    React.createElement(Avatar, { name: c.name, size: 38 }),
+                    React.createElement("div", { className: "min-w-0 flex-1" },
+                        React.createElement("div", { className: "truncate text-sm font-medium text-gray-900" }, c.name),
+                        React.createElement("div", { className: "truncate text-xs text-gray-400" }, c.phone)),
+                    React.createElement(ChevronRight, { size: 15, className: "shrink-0 text-gray-300" })))))),
+        React.createElement("div", { className: "flex-1 overflow-y-auto p-8" }, !selectedClient ? (React.createElement("div", { className: "flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-gray-400" },
+            React.createElement(Users, { size: 28, className: "text-gray-300" }),
+            clients.length === 0 ? (React.createElement(React.Fragment, null,
+                "\u041A\u043B\u0438\u0435\u043D\u0442\u043E\u0432 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442.",
+                React.createElement(PrimaryButton, { icon: Plus, onClick: () => openModal("add-client") }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043A\u043B\u0438\u0435\u043D\u0442\u0430"))) : ("Выберите клиента из списка"))) : (React.createElement(ClientDetail, { client: selectedClient, subscriptions: subscriptions, salesHistory: salesHistory, openModal: openModal, onPrintReceipt: onPrintReceipt })))));
+}
+function ClientDetail({ client, subscriptions, salesHistory, openModal, onPrintReceipt }) {
+    return (React.createElement("div", { className: "mx-auto max-w-3xl space-y-6" },
+        React.createElement("div", { className: "flex items-start justify-between" },
+            React.createElement("div", { className: "flex items-center gap-4" },
+                React.createElement(Avatar, { name: client.name, size: 64 }),
+                React.createElement("div", null,
+                    React.createElement("h2", { className: "text-xl font-semibold text-gray-900" }, client.name),
+                    React.createElement("div", { className: "text-sm text-gray-400" },
+                        "\u041A\u043B\u0438\u0435\u043D\u0442 \u0441 ",
+                        fmtDate(client.firstVisit))))),
+        React.createElement("div", { className: "flex flex-wrap gap-2" },
+            React.createElement(PrimaryButton, { icon: CreditCard, onClick: () => openModal("subscription") }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442"),
+            React.createElement(GhostButton, { icon: Dumbbell, onClick: () => openModal("training") }, "\u0420\u0430\u0437\u043E\u0432\u0430\u044F \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u043A\u0430"),
+            React.createElement(GhostButton, { icon: ShoppingBag, onClick: () => openModal("product") }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0442\u043E\u0432\u0430\u0440"),
+            React.createElement(GhostButton, { icon: RefreshCw, onClick: () => openModal("extend") }, "\u041F\u0440\u043E\u0434\u043B\u0438\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442")),
+        React.createElement("div", { className: "grid grid-cols-2 gap-5 rounded-2xl border border-gray-200 bg-white p-6" },
+            React.createElement(Field, { icon: Phone, label: "\u0422\u0435\u043B\u0435\u0444\u043E\u043D", value: client.phone }),
+            React.createElement(Field, { icon: Cake, label: "\u0414\u0430\u0442\u0430 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F", value: fmtDate(client.birthdate) }),
+            React.createElement(Field, { icon: MapPin, label: "\u0410\u0434\u0440\u0435\u0441", value: client.address }),
+            React.createElement(Field, { icon: Calendar, label: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0435 \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u0435", value: fmtDate(client.lastVisit) })),
+        client.comments && (React.createElement("div", { className: "rounded-2xl border border-orange-100 bg-orange-50/60 p-4 text-sm text-gray-700" },
+            React.createElement("div", { className: "mb-1 text-xs font-medium text-orange-500" }, "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439"),
+            client.comments)),
+        React.createElement("div", null,
+            React.createElement("h3", { className: "mb-3 text-sm font-semibold text-gray-900" }, "\u0410\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442\u044B"),
+            React.createElement("div", { className: "space-y-2" },
+                subscriptions.length === 0 && (React.createElement("div", { className: "rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-400" }, "\u041D\u0435\u0442 \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442\u043E\u0432")),
+                subscriptions.map((s) => (React.createElement("div", { key: s.id, className: "flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4" },
+                    React.createElement("div", null,
+                        React.createElement("div", { className: "text-sm font-medium text-gray-900" }, s.name),
+                        React.createElement("div", { className: "mt-0.5 text-xs text-gray-400" },
+                            fmtDate(s.purchaseDate),
+                            " \u2014 ",
+                            fmtDate(s.endDate),
+                            " \u00B7 ",
+                            fmtMoney(s.price),
+                            s.type === "visits" && ` · осталось посещений: ${s.visitsLeft}`)),
+                    React.createElement(StatusBadge, { status: s.status })))))),
+        React.createElement("div", null,
+            React.createElement("h3", { className: "mb-3 text-sm font-semibold text-gray-900" }, "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043F\u0440\u043E\u0434\u0430\u0436"),
+            React.createElement("div", { className: "divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white" },
+                salesHistory.length === 0 && (React.createElement("div", { className: "p-6 text-center text-sm text-gray-400" }, "\u041F\u0440\u043E\u0434\u0430\u0436 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442")),
+                salesHistory.map((s) => (React.createElement("div", { key: s.id, className: "flex items-center justify-between px-4 py-3" },
+                    React.createElement("div", null,
+                        React.createElement("div", { className: "text-sm text-gray-800" }, s.title),
+                        React.createElement("div", { className: "text-xs text-gray-400" }, fmtDate(s.date))),
+                    React.createElement("div", { className: "flex items-center gap-3" },
+                        React.createElement("div", { className: "text-sm font-medium text-gray-900" }, fmtMoney(s.amount)),
+                        React.createElement("button", { onClick: () => onPrintReceipt(s, client.name), title: "\u041F\u0435\u0447\u0430\u0442\u044C \u0447\u0435\u043A\u0430", className: "rounded-lg p-1.5 text-gray-400 hover:bg-orange-50 hover:text-orange-500" },
+                            React.createElement(Printer, { size: 15 })))))))),
+        React.createElement("div", null,
+            React.createElement("h3", { className: "mb-3 text-sm font-semibold text-gray-900" }, "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u0439"),
+            React.createElement("div", { className: "flex flex-wrap gap-2" }, client.visits.map((v, i) => (React.createElement("span", { key: i, className: "rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600" }, fmtDate(v))))))));
+}
+/* ============================================================
+   SALE / EXTEND MODALS
+   ============================================================ */
+function SubscriptionModal({ onClose, onSubmit }) {
+    const [name, setName] = useState("Безлимит на месяц");
+    const [type, setType] = useState("time");
+    const [price, setPrice] = useState(3500);
+    const [durationDays, setDurationDays] = useState(30);
+    const [visitsCount, setVisitsCount] = useState(8);
+    return (React.createElement(Modal, { title: "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement(LabeledInput, { label: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", value: name, onChange: setName }),
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0422\u0438\u043F \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442\u0430"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(TypeToggle, { active: type === "time", onClick: () => setType("time") }, "\u041F\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438"),
+                    React.createElement(TypeToggle, { active: type === "visits", onClick: () => setType("visits") }, "\u041F\u043E \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u044F\u043C"))),
+            React.createElement(LabeledInput, { label: "\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C, \u20B8", type: "number", value: price, onChange: (v) => setPrice(Number(v)) }),
+            type === "time" ? (React.createElement(LabeledInput, { label: "\u0421\u0440\u043E\u043A \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F, \u0434\u043D\u0435\u0439", type: "number", value: durationDays, onChange: (v) => setDurationDays(Number(v)) })) : (React.createElement(LabeledInput, { label: "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u0439", type: "number", value: visitsCount, onChange: (v) => setVisitsCount(Number(v)) })),
+            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ name, type, price, durationDays, visitsCount }) }, "\u041E\u0444\u043E\u0440\u043C\u0438\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+}
+function TrainingModal({ onClose, onSubmit }) {
+    const [price, setPrice] = useState(900);
+    return (React.createElement(Modal, { title: "\u0420\u0430\u0437\u043E\u0432\u0430\u044F \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u043A\u0430", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement(LabeledInput, { label: "\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C, \u20B8", type: "number", value: price, onChange: (v) => setPrice(Number(v)) }),
+            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ price }) }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+}
+function ProductModal({ products, onClose, onSubmit, onAddProduct }) {
+    var _a;
+    const [mode, setMode] = useState(products.length ? "existing" : "new");
+    const [productId, setProductId] = useState(((_a = products[0]) === null || _a === void 0 ? void 0 : _a.id) || "");
+    const [qty, setQty] = useState(1);
+    const [newName, setNewName] = useState("");
+    const [newPrice, setNewPrice] = useState("");
+    async function handleSubmit() {
+        if (mode === "new") {
+            if (!newName.trim() || !Number(newPrice))
+                return;
+            const created = await onAddProduct({ name: newName.trim(), price: Number(newPrice) });
+            onSubmit({ product: created, qty });
+        }
+        else {
+            const product = products.find((p) => p.id === productId);
+            onSubmit({ product, qty });
+        }
+    }
+    return (React.createElement(Modal, { title: "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0442\u043E\u0432\u0430\u0440", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            products.length > 0 && (React.createElement("div", { className: "flex gap-2" },
+                React.createElement(TypeToggle, { active: mode === "existing", onClick: () => setMode("existing") }, "\u0418\u0437 \u0441\u043F\u0438\u0441\u043A\u0430"),
+                React.createElement(TypeToggle, { active: mode === "new", onClick: () => setMode("new") }, "\u041D\u043E\u0432\u044B\u0439 \u0442\u043E\u0432\u0430\u0440"))),
+            mode === "existing" ? (React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0422\u043E\u0432\u0430\u0440"),
+                React.createElement("select", { value: productId, onChange: (e) => setProductId(e.target.value), className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" }, products.map((p) => (React.createElement("option", { key: p.id, value: p.id },
+                    p.name,
+                    " \u2014 ",
+                    fmtMoney(p.price))))))) : (React.createElement(React.Fragment, null,
+                React.createElement(LabeledInput, { label: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430", value: newName, onChange: setNewName }),
+                React.createElement(LabeledInput, { label: "\u0426\u0435\u043D\u0430, \u20B8", type: "number", value: newPrice, onChange: setNewPrice }),
+                React.createElement("p", { className: "text-xs text-gray-400" }, "\u0422\u043E\u0432\u0430\u0440 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043A\u0430\u0442\u0430\u043B\u043E\u0433\u0435 \u0438 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0434\u0430\u0436\u0435."))),
+            React.createElement(LabeledInput, { label: "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E", type: "number", value: qty, onChange: (v) => setQty(Math.max(1, Number(v))) }),
+            React.createElement(PrimaryButton, { className: "w-full", onClick: handleSubmit }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+}
+function ExtendModal({ subscriptions, onClose, onSubmit }) {
+    var _a;
+    const [subId, setSubId] = useState(((_a = subscriptions[0]) === null || _a === void 0 ? void 0 : _a.id) || "");
+    const [days, setDays] = useState(30);
+    const [visits, setVisits] = useState(8);
+    const sub = subscriptions.find((s) => s.id === subId);
+    if (!subscriptions.length) {
+        return (React.createElement(Modal, { title: "\u041F\u0440\u043E\u0434\u043B\u0438\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442", onClose: onClose },
+            React.createElement("div", { className: "py-6 text-center text-sm text-gray-400" }, "\u0423 \u043A\u043B\u0438\u0435\u043D\u0442\u0430 \u043D\u0435\u0442 \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442\u043E\u0432 \u0434\u043B\u044F \u043F\u0440\u043E\u0434\u043B\u0435\u043D\u0438\u044F")));
+    }
+    return (React.createElement(Modal, { title: "\u041F\u0440\u043E\u0434\u043B\u0438\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0410\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442"),
+                React.createElement("select", { value: subId, onChange: (e) => setSubId(e.target.value), className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" }, subscriptions.map((s) => (React.createElement("option", { key: s.id, value: s.id }, s.name))))),
+            (sub === null || sub === void 0 ? void 0 : sub.type) === "time" ? (React.createElement(LabeledInput, { label: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0434\u043D\u0435\u0439", type: "number", value: days, onChange: (v) => setDays(Number(v)) })) : (React.createElement(LabeledInput, { label: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u0439", type: "number", value: visits, onChange: (v) => setVisits(Number(v)) })),
+            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ subId, days, visits }) }, "\u041F\u0440\u043E\u0434\u043B\u0438\u0442\u044C"))));
+}
+function AddClientModal({ onClose, onSubmit }) {
+    const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
+    const [birthdate, setBirthdate] = useState("");
+    const [address, setAddress] = useState("");
+    const [comments, setComments] = useState("");
+    const canSubmit = name.trim().length > 0 && phone.trim().length > 0;
+    return (React.createElement(Modal, { title: "\u041D\u043E\u0432\u044B\u0439 \u043A\u043B\u0438\u0435\u043D\u0442", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement(LabeledInput, { label: "\u0424\u0418\u041E", value: name, onChange: setName }),
+            React.createElement(LabeledInput, { label: "\u0422\u0435\u043B\u0435\u0444\u043E\u043D", value: phone, onChange: setPhone }),
+            React.createElement(LabeledInput, { label: "\u0414\u0430\u0442\u0430 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F", type: "date", value: birthdate, onChange: setBirthdate }),
+            React.createElement(LabeledInput, { label: "\u0410\u0434\u0440\u0435\u0441", value: address, onChange: setAddress }),
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439"),
+                React.createElement("textarea", { value: comments, onChange: (e) => setComments(e.target.value), rows: 3, className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" })),
+            React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ name: name.trim(), phone: phone.trim(), birthdate, address, comments }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430"))));
+}
+function CashOpModal({ onClose, onSubmit }) {
+    const [type, setType] = useState("income");
+    const [category, setCategory] = useState("");
+    const [description, setDescription] = useState("");
+    const [amount, setAmount] = useState("");
+    const canSubmit = category.trim().length > 0 && Number(amount) > 0;
+    return (React.createElement(Modal, { title: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044E", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0422\u0438\u043F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0438"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(TypeToggle, { active: type === "income", onClick: () => setType("income") }, "\u0414\u043E\u0445\u043E\u0434"),
+                    React.createElement(TypeToggle, { active: type === "expense", onClick: () => setType("expense") }, "\u0420\u0430\u0441\u0445\u043E\u0434"))),
+            React.createElement(LabeledInput, { label: "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F", value: category, onChange: setCategory }),
+            React.createElement(LabeledInput, { label: "\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435", value: description, onChange: setDescription }),
+            React.createElement(LabeledInput, { label: "\u0421\u0443\u043C\u043C\u0430, \u20B8", type: "number", value: amount, onChange: setAmount }),
+            React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ type, category: category.trim(), description: description.trim(), amount: Number(amount) }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+}
+function LabeledInput({ label, value, onChange, type = "text" }) {
+    return (React.createElement("div", null,
+        React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, label),
+        React.createElement("input", { type: type, value: value, onChange: (e) => onChange(e.target.value), className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" })));
+}
+function TypeToggle({ active, onClick, children }) {
+    return (React.createElement("button", { onClick: onClick, className: `flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${active ? "border-orange-500 bg-orange-50 text-orange-600" : "border-gray-200 text-gray-500 hover:bg-gray-50"}` }, children));
+}
+/* ============================================================
+   CASH VIEW
+   ============================================================ */
+function CashView({ dayOps, dayProfit, weekProfit, monthProfit, addCashOp, onPrintDay }) {
+    const income = dayOps.filter((o) => o.type === "income");
+    const expense = dayOps.filter((o) => o.type === "expense");
+    const subs = income.filter((o) => o.category === "Абонемент").reduce((s, o) => s + o.amount, 0);
+    const otherIncome = income.filter((o) => o.category !== "Абонемент" && o.category !== "Товар").reduce((s, o) => s + o.amount, 0);
+    const goods = income.filter((o) => o.category === "Товар").reduce((s, o) => s + o.amount, 0);
+    const totalIncome = income.reduce((s, o) => s + o.amount, 0);
+    const totalExpense = expense.reduce((s, o) => s + o.amount, 0);
+    const cashInRegister = totalIncome - totalExpense;
+    return (React.createElement("div", { className: "h-full overflow-y-auto p-8" },
+        React.createElement("div", { className: "mx-auto max-w-5xl space-y-6" },
+            React.createElement("div", { className: "flex items-center justify-between" },
+                React.createElement("h2", { className: "text-xl font-semibold text-gray-900" }, "\u041A\u0430\u0441\u0441\u0430 \u0437\u0430 \u0434\u0435\u043D\u044C"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(GhostButton, { icon: FileDown, onClick: onPrintDay }, "\u0421\u043A\u0430\u0447\u0430\u0442\u044C PDF"),
+                    React.createElement(GhostButton, { icon: Plus, onClick: addCashOp }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044E"))),
+            React.createElement("div", { className: "grid grid-cols-2 gap-4 md:grid-cols-4" },
+                React.createElement(StatCard, { label: "\u0414\u043E\u0445\u043E\u0434\u044B", value: fmtMoney(totalIncome), icon: ArrowUpRight, tone: "emerald" }),
+                React.createElement(StatCard, { label: "\u0420\u0430\u0441\u0445\u043E\u0434\u044B", value: fmtMoney(totalExpense), icon: ArrowDownRight, tone: "rose" }),
+                React.createElement(StatCard, { label: "\u041F\u0440\u043E\u0434\u0430\u0436\u0438 \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442\u043E\u0432", value: fmtMoney(subs), icon: CreditCard, tone: "orange" }),
+                React.createElement(StatCard, { label: "\u041F\u0440\u043E\u0434\u0430\u0436\u0438 \u0442\u043E\u0432\u0430\u0440\u043E\u0432", value: fmtMoney(goods), icon: ShoppingBag, tone: "orange" })),
+            React.createElement("div", { className: "rounded-2xl border border-orange-200 bg-orange-500 p-6 text-white" },
+                React.createElement("div", { className: "text-sm text-orange-50" }, "\u0421\u0443\u043C\u043C\u0430 \u0432 \u043A\u0430\u0441\u0441\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
+                React.createElement("div", { className: "mt-1 text-3xl font-semibold" }, fmtMoney(cashInRegister))),
+            React.createElement("div", { className: "grid grid-cols-3 gap-4" },
+                React.createElement(ProfitCard, { label: "\u041F\u0440\u0438\u0431\u044B\u043B\u044C \u0437\u0430 \u0434\u0435\u043D\u044C", value: dayProfit }),
+                React.createElement(ProfitCard, { label: "\u041F\u0440\u0438\u0431\u044B\u043B\u044C \u0437\u0430 \u043D\u0435\u0434\u0435\u043B\u044E", value: weekProfit }),
+                React.createElement(ProfitCard, { label: "\u041F\u0440\u0438\u0431\u044B\u043B\u044C \u0437\u0430 \u043C\u0435\u0441\u044F\u0446", value: monthProfit })),
+            React.createElement("div", null,
+                React.createElement("h3", { className: "mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900" },
+                    React.createElement(History, { size: 16, className: "text-orange-500" }),
+                    " \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439 \u0441\u0435\u0433\u043E\u0434\u043D\u044F"),
+                React.createElement("div", { className: "divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white" },
+                    dayOps.length === 0 && (React.createElement("div", { className: "p-6 text-center text-sm text-gray-400" }, "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u043E")),
+                    dayOps.map((o) => (React.createElement("div", { key: o.id, className: "flex items-center justify-between px-4 py-3" },
+                        React.createElement("div", { className: "flex items-center gap-3" },
+                            React.createElement("div", { className: `flex h-9 w-9 items-center justify-center rounded-full ${o.type === "income" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}` }, o.type === "income" ? React.createElement(ArrowUpRight, { size: 16 }) : React.createElement(ArrowDownRight, { size: 16 })),
+                            React.createElement("div", null,
+                                React.createElement("div", { className: "text-sm font-medium text-gray-900" }, o.category),
+                                React.createElement("div", { className: "text-xs text-gray-400" }, o.description))),
+                        React.createElement("div", { className: `text-sm font-semibold ${o.type === "income" ? "text-emerald-600" : "text-rose-600"}` },
+                            o.type === "income" ? "+" : "-",
+                            fmtMoney(o.amount))))))))));
+}
+function StatCard({ label, value, icon: Icon, tone }) {
+    const tones = {
+        emerald: "bg-emerald-50 text-emerald-600",
+        rose: "bg-rose-50 text-rose-600",
+        orange: "bg-orange-50 text-orange-600",
+    };
+    return (React.createElement("div", { className: "rounded-2xl border border-gray-200 bg-white p-4" },
+        React.createElement("div", { className: `mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${tones[tone]}` },
+            React.createElement(Icon, { size: 16 })),
+        React.createElement("div", { className: "text-xs text-gray-400" }, label),
+        React.createElement("div", { className: "mt-0.5 text-lg font-semibold text-gray-900" }, value)));
+}
+function ProfitCard({ label, value }) {
+    return (React.createElement("div", { className: "rounded-2xl border border-gray-200 bg-white p-5" },
+        React.createElement("div", { className: "flex items-center gap-2 text-xs text-gray-400" },
+            React.createElement(TrendingUp, { size: 14, className: "text-orange-500" }),
+            " ",
+            label),
+        React.createElement("div", { className: `mt-1.5 text-2xl font-semibold ${value >= 0 ? "text-gray-900" : "text-rose-600"}` }, fmtMoney(value))));
+}
+/* ============================================================
+   SCHEDULE VIEW
+   ============================================================ */
+function ScheduleView({ schedule, trainers, clients, onAddTrainer, onAddSlot, onDeleteSlot, onEnroll, onUnenroll }) {
+    const [addingSlot, setAddingSlot] = useState(false);
+    const [addingTrainer, setAddingTrainer] = useState(false);
+    const [enrollingSlotId, setEnrollingSlotId] = useState(null);
+    const trainerName = (id) => { var _a; return ((_a = trainers.find((t) => t.id === id)) === null || _a === void 0 ? void 0 : _a.name) || "—"; };
+    const clientName = (id) => { var _a; return ((_a = clients.find((c) => c.id === id)) === null || _a === void 0 ? void 0 : _a.name) || "—"; };
+    const order = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+    const sorted = [...schedule].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day) || a.time.localeCompare(b.time));
+    return (React.createElement("div", { className: "h-full overflow-y-auto p-8" },
+        React.createElement("div", { className: "mx-auto max-w-5xl space-y-5" },
+            React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-3" },
+                React.createElement("h2", { className: "text-xl font-semibold text-gray-900" }, "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u043E\u043A"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(GhostButton, { icon: Users, onClick: () => setAddingTrainer(true) }, "\u0422\u0440\u0435\u043D\u0435\u0440\u044B"),
+                    React.createElement(PrimaryButton, { icon: Plus, onClick: () => setAddingSlot(true) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043D\u044F\u0442\u0438\u0435"))),
+            sorted.length === 0 && (React.createElement("div", { className: "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 py-16 text-center text-sm text-gray-400" },
+                React.createElement(CalendarDays, { size: 28, className: "text-gray-300" }),
+                "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043F\u043E\u043A\u0430 \u043F\u0443\u0441\u0442\u043E\u0435.",
+                React.createElement(PrimaryButton, { icon: Plus, onClick: () => setAddingSlot(true) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0435\u0440\u0432\u043E\u0435 \u0437\u0430\u043D\u044F\u0442\u0438\u0435"))),
+            React.createElement("div", { className: "space-y-3" }, sorted.map((s) => {
+                const free = s.capacity - s.enrolledIds.length;
+                const availableClients = clients.filter((c) => !s.enrolledIds.includes(c.id));
+                return (React.createElement("div", { key: s.id, className: "rounded-2xl border border-gray-200 bg-white p-5" },
+                    React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-3" },
+                        React.createElement("div", { className: "flex items-center gap-4" },
+                            React.createElement("div", { className: "flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-orange-50 text-orange-600" },
+                                React.createElement(Clock, { size: 16 })),
+                            React.createElement("div", null,
+                                React.createElement("div", { className: "text-sm font-semibold text-gray-900" }, s.group),
+                                React.createElement("div", { className: "text-xs text-gray-400" },
+                                    s.day,
+                                    " \u00B7 ",
+                                    s.time,
+                                    " \u00B7 \u0442\u0440\u0435\u043D\u0435\u0440 ",
+                                    trainerName(s.trainerId)))),
+                        React.createElement("div", { className: "flex items-center gap-2" },
+                            React.createElement("span", { className: `rounded-full px-3 py-1 text-xs font-medium ${free > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}` },
+                                free > 0 ? `${free} свободных мест` : "Мест нет",
+                                " \u00B7 ",
+                                s.enrolledIds.length,
+                                "/",
+                                s.capacity),
+                            React.createElement("button", { onClick: () => onDeleteSlot(s.id), title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0437\u0430\u043D\u044F\u0442\u0438\u0435", className: "rounded-lg p-1.5 text-gray-300 hover:bg-rose-50 hover:text-rose-500" },
+                                React.createElement(X, { size: 15 })))),
+                    React.createElement("div", { className: "mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4" },
+                        s.enrolledIds.map((id) => (React.createElement("span", { key: id, className: "flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-1 text-xs text-gray-600" },
+                            React.createElement(User, { size: 12 }),
+                            " ",
+                            clientName(id),
+                            React.createElement("button", { onClick: () => onUnenroll(s.id, id), className: "text-gray-300 hover:text-rose-500" },
+                                React.createElement(X, { size: 11 }))))),
+                        enrollingSlotId === s.id ? (React.createElement("select", { autoFocus: true, defaultValue: "", onChange: (e) => {
+                                if (e.target.value)
+                                    onEnroll(s.id, e.target.value);
+                                setEnrollingSlotId(null);
+                            }, onBlur: () => setEnrollingSlotId(null), className: "rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-orange-400" },
+                            React.createElement("option", { value: "", disabled: true }, "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
+                            availableClients.map((c) => (React.createElement("option", { key: c.id, value: c.id }, c.name))))) : (free > 0 &&
+                            availableClients.length > 0 && (React.createElement("button", { onClick: () => setEnrollingSlotId(s.id), className: "flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-500 hover:border-orange-300 hover:text-orange-600" },
+                            React.createElement(Plus, { size: 12 }),
+                            " \u0417\u0430\u043F\u0438\u0441\u0430\u0442\u044C"))))));
+            }))),
+        addingSlot && (React.createElement(AddScheduleModal, { trainers: trainers, onClose: () => setAddingSlot(false), onAddTrainer: onAddTrainer, onSubmit: (payload) => {
+                onAddSlot(payload);
+                setAddingSlot(false);
+            } })),
+        addingTrainer && (React.createElement(TrainersModal, { trainers: trainers, onAddTrainer: onAddTrainer, onClose: () => setAddingTrainer(false) }))));
+}
+function AddScheduleModal({ trainers, onClose, onSubmit, onAddTrainer }) {
+    var _a;
+    const days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+    const [day, setDay] = useState(days[0]);
+    const [time, setTime] = useState("09:00");
+    const [trainerId, setTrainerId] = useState(((_a = trainers[0]) === null || _a === void 0 ? void 0 : _a.id) || "");
+    const [group, setGroup] = useState("");
+    const [capacity, setCapacity] = useState(10);
+    const [newTrainerName, setNewTrainerName] = useState("");
+    async function handleAddTrainer() {
+        if (!newTrainerName.trim())
+            return;
+        const created = await onAddTrainer({ name: newTrainerName.trim(), specialty: "" });
+        setTrainerId(created.id);
+        setNewTrainerName("");
+    }
+    const canSubmit = group.trim().length > 0 && trainerId && Number(capacity) > 0;
+    return (React.createElement(Modal, { title: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043D\u044F\u0442\u0438\u0435", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0414\u0435\u043D\u044C \u043D\u0435\u0434\u0435\u043B\u0438"),
+                React.createElement("select", { value: day, onChange: (e) => setDay(e.target.value), className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" }, days.map((d) => React.createElement("option", { key: d, value: d }, d)))),
+            React.createElement(LabeledInput, { label: "\u0412\u0440\u0435\u043C\u044F", type: "time", value: time, onChange: setTime }),
+            React.createElement(LabeledInput, { label: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0433\u0440\u0443\u043F\u043F\u044B / \u0437\u0430\u043D\u044F\u0442\u0438\u044F", value: group, onChange: setGroup }),
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0422\u0440\u0435\u043D\u0435\u0440"),
+                trainers.length > 0 ? (React.createElement("select", { value: trainerId, onChange: (e) => setTrainerId(e.target.value), className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" }, trainers.map((t) => React.createElement("option", { key: t.id, value: t.id }, t.name)))) : (React.createElement("p", { className: "text-xs text-gray-400" }, "\u0422\u0440\u0435\u043D\u0435\u0440\u043E\u0432 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u2014 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043D\u0438\u0436\u0435.")),
+                React.createElement("div", { className: "mt-2 flex gap-2" },
+                    React.createElement("input", { value: newTrainerName, onChange: (e) => setNewTrainerName(e.target.value), placeholder: "\u041D\u043E\u0432\u044B\u0439 \u0442\u0440\u0435\u043D\u0435\u0440, \u0424\u0418\u041E", className: "flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" }),
+                    React.createElement(GhostButton, { onClick: handleAddTrainer }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C"))),
+            React.createElement(LabeledInput, { label: "\u0412\u043C\u0435\u0441\u0442\u0438\u043C\u043E\u0441\u0442\u044C", type: "number", value: capacity, onChange: (v) => setCapacity(Number(v)) }),
+            React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ day, time, trainerId, group: group.trim(), capacity: Number(capacity) }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u0440\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435"))));
+}
+function TrainersModal({ trainers, onAddTrainer, onClose }) {
+    const [name, setName] = useState("");
+    const [specialty, setSpecialty] = useState("");
+    return (React.createElement(Modal, { title: "\u0422\u0440\u0435\u043D\u0435\u0440\u044B", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement("div", { className: "space-y-2" },
+                trainers.length === 0 && React.createElement("p", { className: "text-sm text-gray-400" }, "\u0422\u0440\u0435\u043D\u0435\u0440\u043E\u0432 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442."),
+                trainers.map((t) => (React.createElement("div", { key: t.id, className: "flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-3 py-2" },
+                    React.createElement("div", { className: "text-sm font-medium text-gray-800" }, t.name),
+                    React.createElement("div", { className: "text-xs text-gray-400" }, t.specialty))))),
+            React.createElement("div", { className: "space-y-2 border-t border-gray-100 pt-4" },
+                React.createElement(LabeledInput, { label: "\u0418\u043C\u044F \u0442\u0440\u0435\u043D\u0435\u0440\u0430", value: name, onChange: setName }),
+                React.createElement(LabeledInput, { label: "\u0421\u043F\u0435\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u044F", value: specialty, onChange: setSpecialty }),
+                React.createElement(PrimaryButton, { className: "w-full", disabled: !name.trim(), onClick: async () => {
+                        await onAddTrainer({ name: name.trim(), specialty: specialty.trim() });
+                        setName("");
+                        setSpecialty("");
+                    } }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u0440\u0435\u043D\u0435\u0440\u0430")))));
+}
+/* ============================================================
+   PDF (браузерная печать) — открывает системный диалог печати,
+   где можно выбрать "Сохранить как PDF"
+   ============================================================ */
+function PrintableReport({ job }) {
+    if (job.type === "day") {
+        const { ops, total } = job;
+        const income = ops.filter((o) => o.type === "income").reduce((s, o) => s + o.amount, 0);
+        const expense = ops.filter((o) => o.type === "expense").reduce((s, o) => s + o.amount, 0);
+        return (React.createElement("div", { className: "print-only fixed inset-0 z-[999] bg-white p-10 text-black" },
+            React.createElement("h1", { className: "text-2xl font-bold" }, "FitCRM"),
+            React.createElement("div", { className: "mb-6 text-sm text-gray-500" },
+                "\u041A\u0430\u0441\u0441\u043E\u0432\u044B\u0439 \u043E\u0442\u0447\u0451\u0442 \u0437\u0430 ",
+                fmtDate(todayISO())),
+            React.createElement("table", { className: "w-full border-collapse text-sm" },
+                React.createElement("thead", null,
+                    React.createElement("tr", { className: "border-b border-black/20 text-left" },
+                        React.createElement("th", { className: "py-2" }, "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F"),
+                        React.createElement("th", { className: "py-2" }, "\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435"),
+                        React.createElement("th", { className: "py-2 text-right" }, "\u0421\u0443\u043C\u043C\u0430"))),
+                React.createElement("tbody", null, ops.map((o) => (React.createElement("tr", { key: o.id, className: "border-b border-gray-200" },
+                    React.createElement("td", { className: "py-1.5" }, o.category),
+                    React.createElement("td", { className: "py-1.5" }, o.description),
+                    React.createElement("td", { className: "py-1.5 text-right" },
+                        o.type === "income" ? "+" : "-",
+                        fmtMoney(o.amount))))))),
+            React.createElement("div", { className: "mt-6 space-y-1 border-t border-black/20 pt-3 text-sm" },
+                React.createElement("div", { className: "flex justify-between" },
+                    React.createElement("span", null, "\u0414\u043E\u0445\u043E\u0434\u044B"),
+                    React.createElement("span", null, fmtMoney(income))),
+                React.createElement("div", { className: "flex justify-between" },
+                    React.createElement("span", null, "\u0420\u0430\u0441\u0445\u043E\u0434\u044B"),
+                    React.createElement("span", null, fmtMoney(expense))),
+                React.createElement("div", { className: "flex justify-between text-base font-semibold" },
+                    React.createElement("span", null, "\u0421\u0443\u043C\u043C\u0430 \u0432 \u043A\u0430\u0441\u0441\u0435"),
+                    React.createElement("span", null, fmtMoney(total))))));
+    }
+    if (job.type === "receipt") {
+        const s = job.sale;
+        return (React.createElement("div", { className: "print-only fixed inset-0 z-[999] bg-white p-10 text-black" },
+            React.createElement("h1", { className: "text-xl font-bold" }, "FitCRM"),
+            React.createElement("div", { className: "mb-6 text-xs text-gray-500" }, "\u0427\u0435\u043A \u043E\u0431 \u043E\u043F\u043B\u0430\u0442\u0435"),
+            React.createElement("div", { className: "mb-6 space-y-1 text-sm" },
+                React.createElement("div", null,
+                    "\u041A\u043B\u0438\u0435\u043D\u0442: ",
+                    job.clientName),
+                React.createElement("div", null,
+                    "\u0414\u0430\u0442\u0430: ",
+                    fmtDate(s.date)),
+                React.createElement("div", null,
+                    "\u0423\u0441\u043B\u0443\u0433\u0430/\u0442\u043E\u0432\u0430\u0440: ",
+                    s.title)),
+            React.createElement("div", { className: "border-t border-black/20 pt-3 text-lg font-semibold" },
+                "\u0421\u0443\u043C\u043C\u0430: ",
+                fmtMoney(s.amount))));
+    }
+    return null;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));
+</script>
+</body>
+</html>
