@@ -296,7 +296,7 @@ function GhostButton({ children, onClick, icon: Icon, className = "" }) {
 const SUPABASE_URL = ""; // например: "https://abcdefghijk.supabase.co"
 const SUPABASE_KEY = ""; // anon public key (длинная строка)
 function App() {
-    var _a;
+    var _a, _b;
     const [view, setView] = useState("clients");
     const [clients, setClients] = useState(initialClients);
     const [subscriptions, setSubscriptions] = useState(initialSubscriptions);
@@ -312,6 +312,80 @@ function App() {
     const [sb, setSb] = useState({ url: SUPABASE_URL, key: SUPABASE_KEY, connected: false });
     const [sbStatus, setSbStatus] = useState("disconnected"); // disconnected | connecting | connected | error
     const [sbError, setSbError] = useState("");
+    // ---- Вход в аккаунт (Supabase Auth) ----
+    const AUTH_STORAGE_KEY = "fitcrm_session";
+    const [session, setSession] = useState(null);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [authError, setAuthError] = useState("");
+    const [authLoading, setAuthLoading] = useState(false);
+    React.useEffect(() => {
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+            setAuthChecked(true);
+            return;
+        }
+        try {
+            const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+            if (saved)
+                setSession(JSON.parse(saved));
+        }
+        catch (_) { }
+        setAuthChecked(true);
+    }, []);
+    async function authRequest(path, body) {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1${path}`, {
+            method: "POST",
+            headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok)
+            throw new Error(data.error_description || data.msg || data.error || "Ошибка входа");
+        return data;
+    }
+    async function login(email, password) {
+        setAuthError("");
+        setAuthLoading(true);
+        try {
+            const data = await authRequest("/token?grant_type=password", { email, password });
+            setSession(data);
+            try {
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+            }
+            catch (_) { }
+        }
+        catch (e) {
+            setAuthError(e.message);
+        }
+        setAuthLoading(false);
+    }
+    async function signup(email, password) {
+        setAuthError("");
+        setAuthLoading(true);
+        try {
+            const data = await authRequest("/signup", { email, password });
+            if (data.access_token) {
+                setSession(data);
+                try {
+                    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+                }
+                catch (_) { }
+            }
+            else {
+                setAuthError("Аккаунт создан. Если почта требует подтверждения — проверьте письмо, затем войдите.");
+            }
+        }
+        catch (e) {
+            setAuthError(e.message);
+        }
+        setAuthLoading(false);
+    }
+    function logout() {
+        setSession(null);
+        try {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+        }
+        catch (_) { }
+    }
     React.useEffect(() => {
         if (SUPABASE_URL && SUPABASE_KEY) {
             connectSupabase(SUPABASE_URL, SUPABASE_KEY);
@@ -561,6 +635,11 @@ function App() {
         ops.filter((o) => o.type === "expense").reduce((s, o) => s + o.amount, 0);
     const cashInRegister = dayOps.filter((o) => o.type === "income").reduce((s, o) => s + o.amount, 0) -
         dayOps.filter((o) => o.type === "expense").reduce((s, o) => s + o.amount, 0);
+    if (SUPABASE_URL && SUPABASE_KEY && !session) {
+        if (!authChecked)
+            return null;
+        return React.createElement(LoginScreen, { onLogin: login, onSignup: signup, error: authError, loading: authLoading });
+    }
     return (React.createElement(React.Fragment, null,
         React.createElement("style", null, `
         @media print {
@@ -571,7 +650,7 @@ function App() {
         .print-only { display: none; }
       `),
         React.createElement("div", { className: "flex h-screen w-full bg-gray-50 text-gray-900 no-print" },
-            React.createElement(Sidebar, { view: view, setView: setView, sbStatus: sbStatus }),
+            React.createElement(Sidebar, { view: view, setView: setView, sbStatus: sbStatus, userEmail: (_b = session === null || session === void 0 ? void 0 : session.user) === null || _b === void 0 ? void 0 : _b.email, onLogout: logout }),
             React.createElement("div", { className: "flex-1 overflow-hidden" },
                 sbError && (React.createElement("div", { className: "flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-6 py-2 text-xs text-rose-600" },
                     React.createElement(AlertTriangle, { size: 14 }),
@@ -595,7 +674,7 @@ function App() {
 /* ============================================================
    SIDEBAR
    ============================================================ */
-function Sidebar({ view, setView, sbStatus }) {
+function Sidebar({ view, setView, sbStatus, userEmail, onLogout }) {
     const items = [
         { id: "clients", label: "Клиенты", icon: Users },
         { id: "cash", label: "Касса", icon: Wallet },
@@ -613,6 +692,9 @@ function Sidebar({ view, setView, sbStatus }) {
                 React.createElement(it.icon, { size: 17 }),
                 it.label));
         })),
+        userEmail && (React.createElement("div", { className: "flex items-center justify-between gap-2 border-t border-gray-100 px-6 py-3 text-xs" },
+            React.createElement("span", { className: "truncate text-gray-500", title: userEmail }, userEmail),
+            React.createElement("button", { onClick: onLogout, className: "shrink-0 font-medium text-gray-400 hover:text-rose-500" }, "\u0412\u044B\u0439\u0442\u0438"))),
         React.createElement("div", { className: "flex items-center gap-2 border-t border-gray-100 px-6 py-4 text-xs" },
             sbStatus === "connected" && React.createElement(Cloud, { size: 14, className: "text-emerald-500" }),
             sbStatus === "connecting" && React.createElement(Loader2, { size: 14, className: "animate-spin text-orange-500" }),
@@ -622,6 +704,36 @@ function Sidebar({ view, setView, sbStatus }) {
                 sbStatus === "connecting" && "Подключение...",
                 sbStatus === "error" && "Ошибка подключения",
                 sbStatus === "disconnected" && "Локальный режим"))));
+}
+function LoginScreen({ onLogin, onSignup, error, loading }) {
+    const [mode, setMode] = useState("login"); // login | signup
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    function handleSubmit() {
+        if (!email.trim() || !password)
+            return;
+        if (mode === "login")
+            onLogin(email.trim(), password);
+        else
+            onSignup(email.trim(), password);
+    }
+    return (React.createElement("div", { className: "flex h-screen w-full items-center justify-center bg-gray-50" },
+        React.createElement("div", { className: "w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 shadow-sm" },
+            React.createElement("div", { className: "mb-6 flex items-center gap-2" },
+                React.createElement("div", { className: "flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white" },
+                    React.createElement(Dumbbell, { size: 18 })),
+                React.createElement("div", { className: "text-sm font-semibold text-gray-900" }, "FitCRM")),
+            React.createElement("h2", { className: "mb-1 text-lg font-semibold text-gray-900" }, mode === "login" ? "Вход в аккаунт" : "Создать аккаунт"),
+            React.createElement("p", { className: "mb-5 text-sm text-gray-400" }, mode === "login" ? "Войдите, чтобы продолжить работу" : "Первый раз? Создайте аккаунт администратора"),
+            React.createElement("div", { className: "space-y-3" },
+                React.createElement(LabeledInput, { label: "Email", type: "email", value: email, onChange: setEmail }),
+                React.createElement(LabeledInput, { label: "\u041F\u0430\u0440\u043E\u043B\u044C", type: "password", value: password, onChange: setPassword }),
+                error && (React.createElement("div", { className: "flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-600" },
+                    React.createElement(AlertTriangle, { size: 14, className: "mt-0.5 shrink-0" }),
+                    " ",
+                    error)),
+                React.createElement(PrimaryButton, { className: "w-full", disabled: loading, onClick: handleSubmit }, loading ? "Подождите..." : mode === "login" ? "Войти" : "Зарегистрироваться"),
+                React.createElement("button", { onClick: () => setMode(mode === "login" ? "signup" : "login"), className: "w-full text-center text-xs text-gray-400 hover:text-orange-500" }, mode === "login" ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти")))));
 }
 /* ============================================================
    CLIENTS VIEW
