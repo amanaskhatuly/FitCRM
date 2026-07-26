@@ -99,6 +99,8 @@ const TrendingUp = (p) => React.createElement(Svg, { ...p },
     React.createElement("path", { d: "M16 7h6v6" }));
 const ChevronRight = (p) => React.createElement(Svg, { ...p },
     React.createElement("path", { d: "m9 18 6-6-6-6" }));
+const ChevronLeft = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "m15 18-6-6 6-6" }));
 const CheckCircle2 = (p) => React.createElement(Svg, { ...p },
     React.createElement("circle", { cx: "12", cy: "12", r: "10" }),
     React.createElement("path", { d: "m9 12 2 2 4-4" }));
@@ -145,6 +147,9 @@ const AlertTriangle = (p) => React.createElement(Svg, { ...p },
 const Plug = (p) => React.createElement(Svg, { ...p },
     React.createElement("path", { d: "M12 22v-5M9 8V2M15 8V2" }),
     React.createElement("path", { d: "M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" }));
+const Pencil = (p) => React.createElement(Svg, { ...p },
+    React.createElement("path", { d: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" }),
+    React.createElement("path", { d: "m15 5 4 4" }));
 /* ============================================================
    MOCK DATA LAYER
    Эти функции — единственное место, которое нужно заменить
@@ -159,6 +164,11 @@ const daysAgo = (n) => {
 };
 const daysFromNow = (n) => {
     const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+};
+const addDays = (iso, n) => {
+    const d = new Date(iso);
     d.setDate(d.getDate() + n);
     return d.toISOString().slice(0, 10);
 };
@@ -216,6 +226,14 @@ const subToDb = (s) => ({
 });
 const saleFromDb = (r) => ({ id: r.id, clientId: r.client_id, type: r.type, title: r.title, amount: r.amount, date: r.date });
 const saleToDb = (s) => ({ client_id: s.clientId, type: s.type, title: s.title, amount: s.amount, date: s.date });
+const cashOpFromDb = (r) => ({
+    id: r.id, date: r.date, type: r.type, category: r.category, description: r.description,
+    amount: r.amount, paymentMethod: r.payment_method || "cash",
+});
+const cashOpToDb = (o) => ({
+    date: o.date, type: o.type, category: o.category, description: o.description,
+    amount: o.amount, payment_method: o.paymentMethod || "cash",
+});
 const scheduleFromDb = (r) => ({
     id: r.id, day: r.day, time: r.time, trainerId: r.trainer_id, group: r.group_name,
     capacity: r.capacity, enrolledIds: r.enrolled_client_ids || [],
@@ -275,8 +293,8 @@ function GhostButton({ children, onClick, icon: Icon, className = "" }) {
    Если оставить пустыми "" — приложение будет работать локально,
    без базы (данные не сохраняются между визитами).
    ============================================================ */
-const SUPABASE_URL = "https://eludkdamouwfeyquevrp.supabase.co"; // например: "https://abcdefghijk.supabase.co"
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsdWRrZGFtb3V3ZmV5cXVldnJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjQxMzMsImV4cCI6MjEwMDU0MDEzM30.uh5ghoTl6KSgK95Sb3Lyb2tVeV7ENLzNGofEBwUCg6E"; // anon public key (длинная строка)
+const SUPABASE_URL = ""; // например: "https://abcdefghijk.supabase.co"
+const SUPABASE_KEY = ""; // anon public key (длинная строка)
 function App() {
     var _a;
     const [view, setView] = useState("clients");
@@ -340,7 +358,7 @@ function App() {
             setClients(mappedClients);
             setSubscriptions(su.map(subFromDb));
             setSales(sa.map(saleFromDb));
-            setCashOps(co);
+            setCashOps(co.map(cashOpFromDb));
             setTrainers(tr);
             setProducts(pr);
             setSchedule(sc.map(scheduleFromDb));
@@ -392,12 +410,12 @@ function App() {
     const clientSubscriptions = (clientId) => subscriptions.filter((s) => s.clientId === clientId);
     const clientSales = (clientId) => sales.filter((s) => s.clientId === clientId).sort((a, b) => (a.date < b.date ? 1 : -1));
     /* ---------- actions ---------- */
-    async function addCashOp({ type, category, description, amount }) {
-        const local = { id: "op" + Date.now(), date: todayISO(), type, category, description, amount };
-        const saved = await sbInsert("cash_operations", { date: local.date, type, category, description, amount });
-        setCashOps((prev) => [saved || local, ...prev]);
+    async function addCashOp({ type, category, description, amount, paymentMethod, date }) {
+        const local = { id: "op" + Date.now(), date: date || cashDate, type, category, description, amount, paymentMethod: paymentMethod || "cash" };
+        const saved = await sbInsert("cash_operations", cashOpToDb(local));
+        setCashOps((prev) => [saved ? cashOpFromDb(saved) : local, ...prev]);
     }
-    async function recordSale({ clientId, type, title, amount }) {
+    async function recordSale({ clientId, type, title, amount, paymentMethod }) {
         var _a;
         const local = { id: "sl" + Date.now(), clientId, type, title, amount, date: todayISO() };
         const saved = await sbInsert("sales", saleToDb(local));
@@ -407,9 +425,11 @@ function App() {
             category: type === "subscription" ? "Абонемент" : type === "training" ? "Разовая тренировка" : "Товар",
             description: `${(_a = clients.find((c) => c.id === clientId)) === null || _a === void 0 ? void 0 : _a.name} — ${title}`,
             amount,
+            paymentMethod,
+            date: todayISO(),
         });
     }
-    async function sellSubscription({ name, type, price, durationDays, visitsCount }) {
+    async function sellSubscription({ name, type, price, durationDays, visitsCount, paymentMethod }) {
         const local = {
             id: "s" + Date.now(),
             clientId: selectedClientId,
@@ -423,17 +443,17 @@ function App() {
         };
         const saved = await sbInsert("subscriptions", subToDb(local));
         setSubscriptions((prev) => [saved ? subFromDb(saved) : local, ...prev]);
-        await recordSale({ clientId: selectedClientId, type: "subscription", title: name, amount: price });
+        await recordSale({ clientId: selectedClientId, type: "subscription", title: name, amount: price, paymentMethod });
         setModal(null);
     }
-    async function sellTraining({ price }) {
-        await recordSale({ clientId: selectedClientId, type: "training", title: "Разовая тренировка", amount: price });
+    async function sellTraining({ price, paymentMethod }) {
+        await recordSale({ clientId: selectedClientId, type: "training", title: "Разовая тренировка", amount: price, paymentMethod });
         setModal(null);
     }
-    async function sellProduct({ product, qty }) {
+    async function sellProduct({ product, qty, paymentMethod }) {
         if (!product)
             return;
-        await recordSale({ clientId: selectedClientId, type: "product", title: `${product.name} × ${qty}`, amount: product.price * qty });
+        await recordSale({ clientId: selectedClientId, type: "product", title: `${product.name} × ${qty}`, amount: product.price * qty, paymentMethod });
         setModal(null);
     }
     async function extendSubscription({ subId, days, visits }) {
@@ -470,6 +490,15 @@ function App() {
         const finalClient = saved ? { ...clientFromDb(saved), visits: [] } : local;
         setClients((prev) => [finalClient, ...prev]);
         setSelectedClientId(finalClient.id);
+        setModal(null);
+    }
+    async function editClient(clientId, { name, phone, birthdate, address, comments }) {
+        const patch = { name, phone, birthdate: birthdate || "", address: address || "", comments: comments || "" };
+        await sbPatch("clients", clientId, {
+            name: patch.name, phone: patch.phone,
+            birthdate: patch.birthdate || null, address: patch.address || null, comments: patch.comments || null,
+        });
+        setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, ...patch } : c)));
         setModal(null);
     }
     async function addProduct({ name, price }) {
@@ -518,14 +547,14 @@ function App() {
         await sbPatch("schedule", slotId, { enrolled_client_ids: enrolledIds });
         setSchedule((prev) => prev.map((s) => (s.id === slotId ? { ...s, enrolledIds } : s)));
     }
-    function triggerPrintDay(dayOps, total) {
-        setPrintJob({ type: "day", ops: dayOps, total });
+    function triggerPrintDay(dayOps, total, date) {
+        setPrintJob({ type: "day", ops: dayOps, total, date });
     }
     function triggerPrintReceipt(sale, clientName) {
         setPrintJob({ type: "receipt", sale, clientName });
     }
-    const today = todayISO();
-    const dayOps = cashOps.filter((o) => o.date === today);
+    const [cashDate, setCashDate] = useState(todayISO());
+    const dayOps = cashOps.filter((o) => o.date === cashDate);
     const weekOps = cashOps.filter((o) => o.date >= daysAgo(7));
     const monthOps = cashOps.filter((o) => o.date >= daysAgo(30));
     const profit = (ops) => ops.filter((o) => o.type === "income").reduce((s, o) => s + o.amount, 0) -
@@ -549,7 +578,7 @@ function App() {
                     " ",
                     sbError)),
                 view === "clients" && (React.createElement(ClientsView, { clients: filteredClients, query: query, setQuery: setQuery, selectedClientId: selectedClientId, setSelectedClientId: setSelectedClientId, selectedClient: selectedClient, subscriptions: selectedClient ? clientSubscriptions(selectedClient.id) : [], salesHistory: selectedClient ? clientSales(selectedClient.id) : [], openModal: setModal, onPrintReceipt: triggerPrintReceipt })),
-                view === "cash" && (React.createElement(CashView, { dayOps: dayOps, weekProfit: profit(weekOps), monthProfit: profit(monthOps), dayProfit: profit(dayOps), addCashOp: () => setModal("cash-op"), onPrintDay: () => triggerPrintDay(dayOps, cashInRegister) })),
+                view === "cash" && (React.createElement(CashView, { dayOps: dayOps, weekProfit: profit(weekOps), monthProfit: profit(monthOps), dayProfit: profit(dayOps), addCashOp: () => setModal("cash-op"), onPrintDay: () => triggerPrintDay(dayOps, cashInRegister, cashDate), cashDate: cashDate, onPrevDay: () => setCashDate((d) => addDays(d, -1)), onNextDay: () => setCashDate((d) => addDays(d, 1)), onToday: () => setCashDate(todayISO()), isToday: cashDate === todayISO() })),
                 view === "schedule" && (React.createElement(ScheduleView, { schedule: schedule, trainers: trainers, clients: clients, onAddTrainer: addTrainer, onAddSlot: addScheduleSlot, onDeleteSlot: deleteScheduleSlot, onEnroll: enrollClient, onUnenroll: unenrollClient }))),
             modal === "subscription" && selectedClient && (React.createElement(SubscriptionModal, { onClose: () => setModal(null), onSubmit: sellSubscription })),
             modal === "training" && selectedClient && (React.createElement(TrainingModal, { onClose: () => setModal(null), onSubmit: sellTraining })),
@@ -559,7 +588,8 @@ function App() {
                     addCashOp(payload);
                     setModal(null);
                 } })),
-            modal === "add-client" && (React.createElement(AddClientModal, { onClose: () => setModal(null), onSubmit: addClient }))),
+            modal === "add-client" && (React.createElement(AddClientModal, { onClose: () => setModal(null), onSubmit: addClient })),
+            modal === "edit-client" && selectedClient && (React.createElement(EditClientModal, { client: selectedClient, onClose: () => setModal(null), onSubmit: (payload) => editClient(selectedClient.id, payload) }))),
         printJob && React.createElement(PrintableReport, { job: printJob })));
 }
 /* ============================================================
@@ -627,7 +657,8 @@ function ClientDetail({ client, subscriptions, salesHistory, openModal, onPrintR
                     React.createElement("h2", { className: "text-xl font-semibold text-gray-900" }, client.name),
                     React.createElement("div", { className: "text-sm text-gray-400" },
                         "\u041A\u043B\u0438\u0435\u043D\u0442 \u0441 ",
-                        fmtDate(client.firstVisit))))),
+                        fmtDate(client.firstVisit)))),
+            React.createElement(GhostButton, { icon: Pencil, onClick: () => openModal("edit-client") }, "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C")),
         React.createElement("div", { className: "flex flex-wrap gap-2" },
             React.createElement(PrimaryButton, { icon: CreditCard, onClick: () => openModal("subscription") }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442"),
             React.createElement(GhostButton, { icon: Dumbbell, onClick: () => openModal("training") }, "\u0420\u0430\u0437\u043E\u0432\u0430\u044F \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u043A\u0430"),
@@ -635,7 +666,7 @@ function ClientDetail({ client, subscriptions, salesHistory, openModal, onPrintR
             React.createElement(GhostButton, { icon: RefreshCw, onClick: () => openModal("extend") }, "\u041F\u0440\u043E\u0434\u043B\u0438\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442")),
         React.createElement("div", { className: "grid grid-cols-2 gap-5 rounded-2xl border border-gray-200 bg-white p-6" },
             React.createElement(Field, { icon: Phone, label: "\u0422\u0435\u043B\u0435\u0444\u043E\u043D", value: client.phone }),
-            React.createElement(Field, { icon: Cake, label: "\u0414\u0430\u0442\u0430 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F", value: fmtDate(client.birthdate) }),
+            React.createElement(Field, { icon: Cake, label: "\u0414\u0430\u0442\u0430 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F", value: client.birthdate ? fmtDate(client.birthdate) : "" }),
             React.createElement(Field, { icon: MapPin, label: "\u0410\u0434\u0440\u0435\u0441", value: client.address }),
             React.createElement(Field, { icon: Calendar, label: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0435 \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u0435", value: fmtDate(client.lastVisit) })),
         client.comments && (React.createElement("div", { className: "rounded-2xl border border-orange-100 bg-orange-50/60 p-4 text-sm text-gray-700" },
@@ -681,6 +712,7 @@ function SubscriptionModal({ onClose, onSubmit }) {
     const [price, setPrice] = useState(3500);
     const [durationDays, setDurationDays] = useState(30);
     const [visitsCount, setVisitsCount] = useState(8);
+    const [paymentMethod, setPaymentMethod] = useState("cash");
     return (React.createElement(Modal, { title: "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442", onClose: onClose },
         React.createElement("div", { className: "space-y-4" },
             React.createElement(LabeledInput, { label: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", value: name, onChange: setName }),
@@ -691,14 +723,25 @@ function SubscriptionModal({ onClose, onSubmit }) {
                     React.createElement(TypeToggle, { active: type === "visits", onClick: () => setType("visits") }, "\u041F\u043E \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u044F\u043C"))),
             React.createElement(LabeledInput, { label: "\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C, \u20B8", type: "number", value: price, onChange: (v) => setPrice(Number(v)) }),
             type === "time" ? (React.createElement(LabeledInput, { label: "\u0421\u0440\u043E\u043A \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F, \u0434\u043D\u0435\u0439", type: "number", value: durationDays, onChange: (v) => setDurationDays(Number(v)) })) : (React.createElement(LabeledInput, { label: "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043F\u043E\u0441\u0435\u0449\u0435\u043D\u0438\u0439", type: "number", value: visitsCount, onChange: (v) => setVisitsCount(Number(v)) })),
-            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ name, type, price, durationDays, visitsCount }) }, "\u041E\u0444\u043E\u0440\u043C\u0438\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0421\u043F\u043E\u0441\u043E\u0431 \u043E\u043F\u043B\u0430\u0442\u044B"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(TypeToggle, { active: paymentMethod === "cash", onClick: () => setPaymentMethod("cash") }, "\u041D\u0430\u043B\u0438\u0447\u043D\u044B\u0435"),
+                    React.createElement(TypeToggle, { active: paymentMethod === "cashless", onClick: () => setPaymentMethod("cashless") }, "\u0411\u0435\u0437\u043D\u0430\u043B\u0438\u0447\u043D\u044B\u0439"))),
+            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ name, type, price, durationDays, visitsCount, paymentMethod }) }, "\u041E\u0444\u043E\u0440\u043C\u0438\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
 }
 function TrainingModal({ onClose, onSubmit }) {
     const [price, setPrice] = useState(900);
+    const [paymentMethod, setPaymentMethod] = useState("cash");
     return (React.createElement(Modal, { title: "\u0420\u0430\u0437\u043E\u0432\u0430\u044F \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u043A\u0430", onClose: onClose },
         React.createElement("div", { className: "space-y-4" },
             React.createElement(LabeledInput, { label: "\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C, \u20B8", type: "number", value: price, onChange: (v) => setPrice(Number(v)) }),
-            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ price }) }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0421\u043F\u043E\u0441\u043E\u0431 \u043E\u043F\u043B\u0430\u0442\u044B"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(TypeToggle, { active: paymentMethod === "cash", onClick: () => setPaymentMethod("cash") }, "\u041D\u0430\u043B\u0438\u0447\u043D\u044B\u0435"),
+                    React.createElement(TypeToggle, { active: paymentMethod === "cashless", onClick: () => setPaymentMethod("cashless") }, "\u0411\u0435\u0437\u043D\u0430\u043B\u0438\u0447\u043D\u044B\u0439"))),
+            React.createElement(PrimaryButton, { className: "w-full", onClick: () => onSubmit({ price, paymentMethod }) }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
 }
 function ProductModal({ products, onClose, onSubmit, onAddProduct }) {
     var _a;
@@ -707,16 +750,17 @@ function ProductModal({ products, onClose, onSubmit, onAddProduct }) {
     const [qty, setQty] = useState(1);
     const [newName, setNewName] = useState("");
     const [newPrice, setNewPrice] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("cash");
     async function handleSubmit() {
         if (mode === "new") {
             if (!newName.trim() || !Number(newPrice))
                 return;
             const created = await onAddProduct({ name: newName.trim(), price: Number(newPrice) });
-            onSubmit({ product: created, qty });
+            onSubmit({ product: created, qty, paymentMethod });
         }
         else {
             const product = products.find((p) => p.id === productId);
-            onSubmit({ product, qty });
+            onSubmit({ product, qty, paymentMethod });
         }
     }
     return (React.createElement(Modal, { title: "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0442\u043E\u0432\u0430\u0440", onClose: onClose },
@@ -734,6 +778,11 @@ function ProductModal({ products, onClose, onSubmit, onAddProduct }) {
                 React.createElement(LabeledInput, { label: "\u0426\u0435\u043D\u0430, \u20B8", type: "number", value: newPrice, onChange: setNewPrice }),
                 React.createElement("p", { className: "text-xs text-gray-400" }, "\u0422\u043E\u0432\u0430\u0440 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043A\u0430\u0442\u0430\u043B\u043E\u0433\u0435 \u0438 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0434\u0430\u0436\u0435."))),
             React.createElement(LabeledInput, { label: "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E", type: "number", value: qty, onChange: (v) => setQty(Math.max(1, Number(v))) }),
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0421\u043F\u043E\u0441\u043E\u0431 \u043E\u043F\u043B\u0430\u0442\u044B"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(TypeToggle, { active: paymentMethod === "cash", onClick: () => setPaymentMethod("cash") }, "\u041D\u0430\u043B\u0438\u0447\u043D\u044B\u0435"),
+                    React.createElement(TypeToggle, { active: paymentMethod === "cashless", onClick: () => setPaymentMethod("cashless") }, "\u0411\u0435\u0437\u043D\u0430\u043B\u0438\u0447\u043D\u044B\u0439"))),
             React.createElement(PrimaryButton, { className: "w-full", onClick: handleSubmit }, "\u041F\u0440\u043E\u0434\u0430\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
 }
 function ExtendModal({ subscriptions, onClose, onSubmit }) {
@@ -772,11 +821,30 @@ function AddClientModal({ onClose, onSubmit }) {
                 React.createElement("textarea", { value: comments, onChange: (e) => setComments(e.target.value), rows: 3, className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" })),
             React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ name: name.trim(), phone: phone.trim(), birthdate, address, comments }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430"))));
 }
+function EditClientModal({ client, onClose, onSubmit }) {
+    const [name, setName] = useState(client.name || "");
+    const [phone, setPhone] = useState(client.phone || "");
+    const [birthdate, setBirthdate] = useState(client.birthdate || "");
+    const [address, setAddress] = useState(client.address || "");
+    const [comments, setComments] = useState(client.comments || "");
+    const canSubmit = name.trim().length > 0 && phone.trim().length > 0;
+    return (React.createElement(Modal, { title: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043A\u043B\u0438\u0435\u043D\u0442\u0430", onClose: onClose },
+        React.createElement("div", { className: "space-y-4" },
+            React.createElement(LabeledInput, { label: "\u0424\u0418\u041E", value: name, onChange: setName }),
+            React.createElement(LabeledInput, { label: "\u0422\u0435\u043B\u0435\u0444\u043E\u043D", value: phone, onChange: setPhone }),
+            React.createElement(LabeledInput, { label: "\u0414\u0430\u0442\u0430 \u0440\u043E\u0436\u0434\u0435\u043D\u0438\u044F", type: "date", value: birthdate, onChange: setBirthdate }),
+            React.createElement(LabeledInput, { label: "\u0410\u0434\u0440\u0435\u0441", value: address, onChange: setAddress }),
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439"),
+                React.createElement("textarea", { value: comments, onChange: (e) => setComments(e.target.value), rows: 3, className: "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-100" })),
+            React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ name: name.trim(), phone: phone.trim(), birthdate, address, comments }) }, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F"))));
+}
 function CashOpModal({ onClose, onSubmit }) {
     const [type, setType] = useState("income");
     const [category, setCategory] = useState("");
     const [description, setDescription] = useState("");
     const [amount, setAmount] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("cash");
     const canSubmit = category.trim().length > 0 && Number(amount) > 0;
     return (React.createElement(Modal, { title: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044E", onClose: onClose },
         React.createElement("div", { className: "space-y-4" },
@@ -785,10 +853,15 @@ function CashOpModal({ onClose, onSubmit }) {
                 React.createElement("div", { className: "flex gap-2" },
                     React.createElement(TypeToggle, { active: type === "income", onClick: () => setType("income") }, "\u0414\u043E\u0445\u043E\u0434"),
                     React.createElement(TypeToggle, { active: type === "expense", onClick: () => setType("expense") }, "\u0420\u0430\u0441\u0445\u043E\u0434"))),
+            React.createElement("div", null,
+                React.createElement("div", { className: "mb-1.5 text-xs text-gray-500" }, "\u0421\u043F\u043E\u0441\u043E\u0431 \u043E\u043F\u043B\u0430\u0442\u044B"),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement(TypeToggle, { active: paymentMethod === "cash", onClick: () => setPaymentMethod("cash") }, "\u041D\u0430\u043B\u0438\u0447\u043D\u044B\u0435"),
+                    React.createElement(TypeToggle, { active: paymentMethod === "cashless", onClick: () => setPaymentMethod("cashless") }, "\u0411\u0435\u0437\u043D\u0430\u043B\u0438\u0447\u043D\u044B\u0439"))),
             React.createElement(LabeledInput, { label: "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F", value: category, onChange: setCategory }),
             React.createElement(LabeledInput, { label: "\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435", value: description, onChange: setDescription }),
             React.createElement(LabeledInput, { label: "\u0421\u0443\u043C\u043C\u0430, \u20B8", type: "number", value: amount, onChange: setAmount }),
-            React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ type, category: category.trim(), description: description.trim(), amount: Number(amount) }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
+            React.createElement(PrimaryButton, { className: "w-full", disabled: !canSubmit, onClick: () => onSubmit({ type, category: category.trim(), description: description.trim(), amount: Number(amount), paymentMethod }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u0430\u0441\u0441\u0443"))));
 }
 function LabeledInput({ label, value, onChange, type = "text" }) {
     return (React.createElement("div", null,
@@ -801,30 +874,47 @@ function TypeToggle({ active, onClick, children }) {
 /* ============================================================
    CASH VIEW
    ============================================================ */
-function CashView({ dayOps, dayProfit, weekProfit, monthProfit, addCashOp, onPrintDay }) {
+function CashView({ dayOps, dayProfit, weekProfit, monthProfit, addCashOp, onPrintDay, cashDate, onPrevDay, onNextDay, onToday, isToday }) {
     const income = dayOps.filter((o) => o.type === "income");
     const expense = dayOps.filter((o) => o.type === "expense");
     const subs = income.filter((o) => o.category === "Абонемент").reduce((s, o) => s + o.amount, 0);
-    const otherIncome = income.filter((o) => o.category !== "Абонемент" && o.category !== "Товар").reduce((s, o) => s + o.amount, 0);
     const goods = income.filter((o) => o.category === "Товар").reduce((s, o) => s + o.amount, 0);
     const totalIncome = income.reduce((s, o) => s + o.amount, 0);
     const totalExpense = expense.reduce((s, o) => s + o.amount, 0);
     const cashInRegister = totalIncome - totalExpense;
+    const cashPayments = dayOps.filter((o) => (o.paymentMethod || "cash") === "cash").reduce((s, o) => s + (o.type === "income" ? o.amount : -o.amount), 0);
+    const cashlessPayments = dayOps.filter((o) => o.paymentMethod === "cashless").reduce((s, o) => s + (o.type === "income" ? o.amount : -o.amount), 0);
     return (React.createElement("div", { className: "h-full overflow-y-auto p-8" },
         React.createElement("div", { className: "mx-auto max-w-5xl space-y-6" },
-            React.createElement("div", { className: "flex items-center justify-between" },
-                React.createElement("h2", { className: "text-xl font-semibold text-gray-900" }, "\u041A\u0430\u0441\u0441\u0430 \u0437\u0430 \u0434\u0435\u043D\u044C"),
+            React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-3" },
+                React.createElement("h2", { className: "text-xl font-semibold text-gray-900" }, "\u041A\u0430\u0441\u0441\u0430"),
                 React.createElement("div", { className: "flex gap-2" },
                     React.createElement(GhostButton, { icon: FileDown, onClick: onPrintDay }, "\u0421\u043A\u0430\u0447\u0430\u0442\u044C PDF"),
                     React.createElement(GhostButton, { icon: Plus, onClick: addCashOp }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044E"))),
+            React.createElement("div", { className: "flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white py-2" },
+                React.createElement("button", { onClick: onPrevDay, className: "rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" },
+                    React.createElement(ChevronLeft, { size: 16 })),
+                React.createElement("span", { className: "min-w-[130px] text-center text-sm font-medium text-gray-900" }, fmtDate(cashDate)),
+                React.createElement("button", { onClick: onNextDay, disabled: isToday, className: "rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent" },
+                    React.createElement(ChevronRight, { size: 16 })),
+                !isToday && (React.createElement("button", { onClick: onToday, className: "ml-2 text-xs font-medium text-orange-500 hover:underline" }, "\u0421\u0435\u0433\u043E\u0434\u043D\u044F"))),
             React.createElement("div", { className: "grid grid-cols-2 gap-4 md:grid-cols-4" },
                 React.createElement(StatCard, { label: "\u0414\u043E\u0445\u043E\u0434\u044B", value: fmtMoney(totalIncome), icon: ArrowUpRight, tone: "emerald" }),
                 React.createElement(StatCard, { label: "\u0420\u0430\u0441\u0445\u043E\u0434\u044B", value: fmtMoney(totalExpense), icon: ArrowDownRight, tone: "rose" }),
                 React.createElement(StatCard, { label: "\u041F\u0440\u043E\u0434\u0430\u0436\u0438 \u0430\u0431\u043E\u043D\u0435\u043C\u0435\u043D\u0442\u043E\u0432", value: fmtMoney(subs), icon: CreditCard, tone: "orange" }),
                 React.createElement(StatCard, { label: "\u041F\u0440\u043E\u0434\u0430\u0436\u0438 \u0442\u043E\u0432\u0430\u0440\u043E\u0432", value: fmtMoney(goods), icon: ShoppingBag, tone: "orange" })),
             React.createElement("div", { className: "rounded-2xl border border-orange-200 bg-orange-500 p-6 text-white" },
-                React.createElement("div", { className: "text-sm text-orange-50" }, "\u0421\u0443\u043C\u043C\u0430 \u0432 \u043A\u0430\u0441\u0441\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
-                React.createElement("div", { className: "mt-1 text-3xl font-semibold" }, fmtMoney(cashInRegister))),
+                React.createElement("div", { className: "text-sm text-orange-50" }, "\u0421\u0443\u043C\u043C\u0430 \u0432 \u043A\u0430\u0441\u0441\u0435 \u0437\u0430 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C"),
+                React.createElement("div", { className: "mt-1 text-3xl font-semibold" }, fmtMoney(cashInRegister)),
+                React.createElement("div", { className: "mt-3 flex gap-5 text-sm text-orange-50" },
+                    React.createElement("span", { className: "flex items-center gap-1.5" },
+                        React.createElement(Banknote, { size: 14 }),
+                        " \u041D\u0430\u043B\u0438\u0447\u043D\u044B\u043C\u0438: ",
+                        fmtMoney(cashPayments)),
+                    React.createElement("span", { className: "flex items-center gap-1.5" },
+                        React.createElement(CreditCard, { size: 14 }),
+                        " \u0411\u0435\u0437\u043D\u0430\u043B\u0438\u0447\u043D\u043E: ",
+                        fmtMoney(cashlessPayments)))),
             React.createElement("div", { className: "grid grid-cols-3 gap-4" },
                 React.createElement(ProfitCard, { label: "\u041F\u0440\u0438\u0431\u044B\u043B\u044C \u0437\u0430 \u0434\u0435\u043D\u044C", value: dayProfit }),
                 React.createElement(ProfitCard, { label: "\u041F\u0440\u0438\u0431\u044B\u043B\u044C \u0437\u0430 \u043D\u0435\u0434\u0435\u043B\u044E", value: weekProfit }),
@@ -832,14 +922,17 @@ function CashView({ dayOps, dayProfit, weekProfit, monthProfit, addCashOp, onPri
             React.createElement("div", null,
                 React.createElement("h3", { className: "mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900" },
                     React.createElement(History, { size: 16, className: "text-orange-500" }),
-                    " \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439 \u0441\u0435\u0433\u043E\u0434\u043D\u044F"),
+                    " \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439 \u0437\u0430 ",
+                    fmtDate(cashDate)),
                 React.createElement("div", { className: "divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white" },
-                    dayOps.length === 0 && (React.createElement("div", { className: "p-6 text-center text-sm text-gray-400" }, "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u043E")),
+                    dayOps.length === 0 && (React.createElement("div", { className: "p-6 text-center text-sm text-gray-400" }, "\u0412 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439 \u043D\u0435 \u0431\u044B\u043B\u043E")),
                     dayOps.map((o) => (React.createElement("div", { key: o.id, className: "flex items-center justify-between px-4 py-3" },
                         React.createElement("div", { className: "flex items-center gap-3" },
                             React.createElement("div", { className: `flex h-9 w-9 items-center justify-center rounded-full ${o.type === "income" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}` }, o.type === "income" ? React.createElement(ArrowUpRight, { size: 16 }) : React.createElement(ArrowDownRight, { size: 16 })),
                             React.createElement("div", null,
-                                React.createElement("div", { className: "text-sm font-medium text-gray-900" }, o.category),
+                                React.createElement("div", { className: "flex items-center gap-2 text-sm font-medium text-gray-900" },
+                                    o.category,
+                                    React.createElement("span", { className: "rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-500" }, o.paymentMethod === "cashless" ? "Безнал" : "Нал")),
                                 React.createElement("div", { className: "text-xs text-gray-400" }, o.description))),
                         React.createElement("div", { className: `text-sm font-semibold ${o.type === "income" ? "text-emerald-600" : "text-rose-600"}` },
                             o.type === "income" ? "+" : "-",
@@ -1001,7 +1094,7 @@ function PrintableReport({ job }) {
             React.createElement("h1", { className: "text-2xl font-bold" }, "FitCRM"),
             React.createElement("div", { className: "mb-6 text-sm text-gray-500" },
                 "\u041A\u0430\u0441\u0441\u043E\u0432\u044B\u0439 \u043E\u0442\u0447\u0451\u0442 \u0437\u0430 ",
-                fmtDate(todayISO())),
+                fmtDate(job.date || todayISO())),
             React.createElement("table", { className: "w-full border-collapse text-sm" },
                 React.createElement("thead", null,
                     React.createElement("tr", { className: "border-b border-black/20 text-left" },
