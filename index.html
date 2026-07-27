@@ -323,13 +323,25 @@ function App() {
             setAuthChecked(true);
             return;
         }
-        try {
-            const saved = localStorage.getItem(AUTH_STORAGE_KEY);
-            if (saved)
-                setSession(JSON.parse(saved));
-        }
-        catch (_) { }
-        setAuthChecked(true);
+        (async () => {
+            try {
+                const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed === null || parsed === void 0 ? void 0 : parsed.refresh_token) {
+                        const fresh = await refreshSession(parsed.refresh_token);
+                        if (!fresh)
+                            setSession(parsed); // fall back to stored session; connectSupabase will retry-refresh if it's actually expired
+                    }
+                    else if (parsed === null || parsed === void 0 ? void 0 : parsed.access_token) {
+                        setSession(parsed);
+                    }
+                }
+            }
+            catch (_) { }
+            setAuthChecked(true);
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     async function authRequest(path, body) {
         const res = await fetch(`${SUPABASE_URL}/auth/v1${path}`, {
@@ -341,6 +353,20 @@ function App() {
         if (!res.ok)
             throw new Error(data.error_description || data.msg || data.error || "Ошибка входа");
         return data;
+    }
+    async function refreshSession(refreshToken) {
+        try {
+            const data = await authRequest("/token?grant_type=refresh_token", { refresh_token: refreshToken });
+            setSession(data);
+            try {
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+            }
+            catch (_) { }
+            return data;
+        }
+        catch (_) {
+            return null;
+        }
     }
     async function login(email, password) {
         setAuthError("");
@@ -402,6 +428,16 @@ function App() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session === null || session === void 0 ? void 0 : session.access_token]);
+    // Продлеваем токен каждые 20 минут, пока приложение открыто, чтобы не словить "JWT expired"
+    React.useEffect(() => {
+        if (!(session === null || session === void 0 ? void 0 : session.refresh_token))
+            return;
+        const interval = setInterval(() => {
+            refreshSession(session.refresh_token);
+        }, 20 * 60 * 1000);
+        return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session === null || session === void 0 ? void 0 : session.refresh_token]);
     // ---- Print / PDF ----
     const [printJob, setPrintJob] = useState(null);
     React.useEffect(() => {
@@ -415,7 +451,7 @@ function App() {
             return () => clearTimeout(t);
         }
     }, [printJob]);
-    async function connectSupabase(url, key, token) {
+    async function connectSupabase(url, key, token, retried) {
         const cfg = { url: url.replace(/\/+$/, ""), key, token };
         setSbStatus("connecting");
         setSbError("");
@@ -452,6 +488,13 @@ function App() {
             setModal(null);
         }
         catch (e) {
+            const expired = /jwt|401/i.test(e.message || "");
+            if (expired && !retried && (session === null || session === void 0 ? void 0 : session.refresh_token)) {
+                const fresh = await refreshSession(session.refresh_token);
+                if (fresh === null || fresh === void 0 ? void 0 : fresh.access_token) {
+                    return connectSupabase(url, key, fresh.access_token, true);
+                }
+            }
             setSbStatus("error");
             setSbError(e.message || "Не удалось подключиться");
         }
@@ -460,7 +503,7 @@ function App() {
         setSb({ url: "", key: "", token: "", connected: false });
         setSbStatus("disconnected");
     }
-    async function sbInsert(table, payload) {
+    async function sbInsert(table, payload, retried) {
         if (!sb.connected)
             return null;
         try {
@@ -468,17 +511,31 @@ function App() {
             return (rows === null || rows === void 0 ? void 0 : rows[0]) || null;
         }
         catch (e) {
+            if (/jwt|401/i.test(e.message || "") && !retried && (session === null || session === void 0 ? void 0 : session.refresh_token)) {
+                const fresh = await refreshSession(session.refresh_token);
+                if (fresh === null || fresh === void 0 ? void 0 : fresh.access_token) {
+                    setSb((prev) => ({ ...prev, token: fresh.access_token }));
+                    return sbInsert(table, payload, true);
+                }
+            }
             setSbError(e.message);
             return null;
         }
     }
-    async function sbPatch(table, id, payload) {
+    async function sbPatch(table, id, payload, retried) {
         if (!sb.connected)
             return null;
         try {
             return await sbRequest(sb, table, { method: "PATCH", body: payload, query: `?id=eq.${id}` });
         }
         catch (e) {
+            if (/jwt|401/i.test(e.message || "") && !retried && (session === null || session === void 0 ? void 0 : session.refresh_token)) {
+                const fresh = await refreshSession(session.refresh_token);
+                if (fresh === null || fresh === void 0 ? void 0 : fresh.access_token) {
+                    setSb((prev) => ({ ...prev, token: fresh.access_token }));
+                    return sbPatch(table, id, payload, true);
+                }
+            }
             setSbError(e.message);
             return null;
         }
@@ -603,12 +660,19 @@ function App() {
         });
         setSchedule((prev) => [...prev, saved ? scheduleFromDb(saved) : local]);
     }
-    async function deleteScheduleSlot(slotId) {
+    async function deleteScheduleSlot(slotId, retried) {
         if (sb.connected) {
             try {
                 await sbRequest(sb, "schedule", { method: "DELETE", query: `?id=eq.${slotId}` });
             }
             catch (e) {
+                if (/jwt|401/i.test(e.message || "") && !retried && (session === null || session === void 0 ? void 0 : session.refresh_token)) {
+                    const fresh = await refreshSession(session.refresh_token);
+                    if (fresh === null || fresh === void 0 ? void 0 : fresh.access_token) {
+                        setSb((prev) => ({ ...prev, token: fresh.access_token }));
+                        return deleteScheduleSlot(slotId, true);
+                    }
+                }
                 setSbError(e.message);
             }
         }
