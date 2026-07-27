@@ -189,7 +189,7 @@ const initialSchedule = [];
 async function sbRequest(cfg, table, { method = "GET", body, query = "" } = {}) {
     const headers = {
         apikey: cfg.key,
-        Authorization: `Bearer ${cfg.key}`,
+        Authorization: `Bearer ${cfg.token || cfg.key}`,
         "Content-Type": "application/json",
     };
     if (method === "POST" || method === "PATCH")
@@ -293,8 +293,8 @@ function GhostButton({ children, onClick, icon: Icon, className = "" }) {
    Если оставить пустыми "" — приложение будет работать локально,
    без базы (данные не сохраняются между визитами).
    ============================================================ */
-const SUPABASE_URL = "https://eludkdamouwfeyquevrp.supabase.co"; // например: "https://abcdefghijk.supabase.co"
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsdWRrZGFtb3V3ZmV5cXVldnJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjQxMzMsImV4cCI6MjEwMDU0MDEzM30.uh5ghoTl6KSgK95Sb3Lyb2tVeV7ENLzNGofEBwUCg6E"; // anon public key (длинная строка)
+const SUPABASE_URL = "https://eludkdamouwfeyquevrp.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsdWRrZGFtb3V3ZmV5cXVldnJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NjQxMzMsImV4cCI6MjEwMDU0MDEzM30.uh5ghoTl6KSgK95Sb3Lyb2tVeV7ENLzNGofEBwUCg6E";
 function App() {
     var _a, _b;
     const [view, setView] = useState("clients");
@@ -385,13 +385,23 @@ function App() {
             localStorage.removeItem(AUTH_STORAGE_KEY);
         }
         catch (_) { }
+        setSb({ url: SUPABASE_URL, key: SUPABASE_KEY, token: "", connected: false });
+        setSbStatus("disconnected");
+        setClients([]);
+        setSubscriptions([]);
+        setSales([]);
+        setCashOps([]);
+        setTrainers([]);
+        setProducts([]);
+        setSchedule([]);
+        setSelectedClientId(null);
     }
     React.useEffect(() => {
-        if (SUPABASE_URL && SUPABASE_KEY) {
-            connectSupabase(SUPABASE_URL, SUPABASE_KEY);
+        if (SUPABASE_URL && SUPABASE_KEY && (session === null || session === void 0 ? void 0 : session.access_token)) {
+            connectSupabase(SUPABASE_URL, SUPABASE_KEY, session.access_token);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [session === null || session === void 0 ? void 0 : session.access_token]);
     // ---- Print / PDF ----
     const [printJob, setPrintJob] = useState(null);
     React.useEffect(() => {
@@ -405,8 +415,8 @@ function App() {
             return () => clearTimeout(t);
         }
     }, [printJob]);
-    async function connectSupabase(url, key) {
-        const cfg = { url: url.replace(/\/+$/, ""), key };
+    async function connectSupabase(url, key, token) {
+        const cfg = { url: url.replace(/\/+$/, ""), key, token };
         setSbStatus("connecting");
         setSbError("");
         try {
@@ -436,9 +446,8 @@ function App() {
             setTrainers(tr);
             setProducts(pr);
             setSchedule(sc.map(scheduleFromDb));
-            if (mappedClients[0])
-                setSelectedClientId(mappedClients[0].id);
-            setSb({ url: cfg.url, key, connected: true });
+            setSelectedClientId(mappedClients[0] ? mappedClients[0].id : null);
+            setSb({ url: cfg.url, key, token, connected: true });
             setSbStatus("connected");
             setModal(null);
         }
@@ -448,7 +457,7 @@ function App() {
         }
     }
     function disconnectSupabase() {
-        setSb({ url: "", key: "", connected: false });
+        setSb({ url: "", key: "", token: "", connected: false });
         setSbStatus("disconnected");
     }
     async function sbInsert(table, payload) {
